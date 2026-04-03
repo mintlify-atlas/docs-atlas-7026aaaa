@@ -1,0 +1,77 @@
+---
+title: "Configuration"
+description: "Environment variables and runtime paths for wecom-cli."
+---
+
+wecom-cli requires no configuration file. All settings are controlled through environment variables, and all runtime files are written to well-known locations you can override.
+
+## Environment variables
+
+<ParamField path="WECOM_CLI_CONFIG_DIR" type="string">
+  Overrides the default configuration directory (`~/.config/wecom`). Set this to store bot credentials and MCP config cache in a custom location — useful for CI environments or when running multiple accounts.
+
+  ```bash
+  WECOM_CLI_CONFIG_DIR=/opt/wecom/config wecom-cli contact get_userlist '{}'
+  ```
+</ParamField>
+
+<ParamField path="WECOM_CLI_TMP_DIR" type="string">
+  Overrides the root of the media temporary directory. By default, wecom-cli writes downloaded media files to `<system_tmp>/wecom/media`. Setting this variable changes the root; the `media` subdirectory is always appended automatically.
+
+  ```bash
+  WECOM_CLI_TMP_DIR=/mnt/fast-disk wecom-cli msg get_msg_media '{"msgid": "..."}'
+  # Files are written to /mnt/fast-disk/media
+  ```
+</ParamField>
+
+<ParamField path="WECOM_CLI_LOG_LEVEL" type="string">
+  Enables human-readable log output on **stderr** and sets the filter level. Accepts standard tracing filter directives such as `debug`, `info`, `warn`, `error`, or crate-scoped filters like `ww=debug`.
+
+  ```bash
+  WECOM_CLI_LOG_LEVEL=debug wecom-cli contact get_userlist '{}'
+  ```
+
+  Logging is disabled entirely when this variable is unset.
+</ParamField>
+
+<ParamField path="WECOM_CLI_LOG_FILE" type="string">
+  Enables JSON log output written to a daily rotating file. Set this to the **directory** where log files should be written. wecom-cli appends `ww.log` as the filename and rotates it daily.
+
+  ```bash
+  WECOM_CLI_LOG_FILE=/var/log/wecom wecom-cli contact get_userlist '{}'
+  # Writes JSON logs to /var/log/wecom/ww.log
+  ```
+
+  The file log always captures `debug` level and above for the `ww` crate. Logging is disabled entirely when this variable is unset.
+</ParamField>
+
+<ParamField path="WECOM_CLI_MCP_CONFIG_ENDPOINT" type="string">
+  Overrides the default MCP config endpoint URL. By default, wecom-cli fetches MCP configuration from `https://qyapi.weixin.qq.com/cgi-bin/aibot/cli/get_mcp_config`. Use this variable to point to a custom or proxied endpoint.
+
+  ```bash
+  WECOM_CLI_MCP_CONFIG_ENDPOINT=https://proxy.example.com/mcp-config wecom-cli init
+  ```
+</ParamField>
+
+## Runtime paths
+
+wecom-cli creates and reads files in these locations at runtime:
+
+| Item              | Default path                    | Notes                                              |
+| ----------------- | ------------------------------- | -------------------------------------------------- |
+| Config directory  | `~/.config/wecom`               | Override with `WECOM_CLI_CONFIG_DIR`               |
+| Bot credentials   | `<config_dir>/bot.enc`          | Created by `wecom-cli init`                        |
+| MCP config cache  | `<config_dir>/mcp_config.enc`   | Updated automatically after a successful `init`    |
+| Media temp dir    | `<system_tmp>/wecom/media`      | Override root with `WECOM_CLI_TMP_DIR`             |
+
+<Note>
+  `<system_tmp>` is the OS temporary directory — typically `/tmp` on Linux and macOS, and `%TEMP%` on Windows.
+</Note>
+
+### Credential storage
+
+Bot credentials (`bot.enc`) and the MCP config cache (`mcp_config.enc`) are encrypted at rest using **AES-256-GCM**. Each file stores a random 96-bit nonce prepended to the ciphertext, so every write produces a distinct output even for identical plaintext. The encryption key is derived from a machine-local keystore.
+
+<Tip>
+  To reset your credentials and start fresh, delete `~/.config/wecom/bot.enc` and run `wecom-cli init` again.
+</Tip>

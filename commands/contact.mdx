@@ -1,0 +1,96 @@
+---
+title: "contact"
+description: "Query WeCom members visible to your account — returns user ID, name, and alias."
+---
+
+The `contact` category lets you retrieve the members your bot can see within your organization. Results are scoped to your bot's visibility permissions — this is not necessarily every member in the organization.
+
+```bash
+wecom-cli contact <method> [json_args]
+```
+
+To list all available methods:
+
+```bash
+wecom-cli contact --help
+```
+
+<Note>
+  The `contact` category currently requires credentials and a network connection to fetch the tool list dynamically. Running `--help` will fail if you have not completed `wecom-cli init`.
+</Note>
+
+---
+
+## get\_userlist
+
+Returns all members within your bot's visible scope.
+
+```bash
+wecom-cli contact get_userlist '{}'
+```
+
+### Parameters
+
+`get_userlist` takes no input parameters. Pass an empty JSON object.
+
+<ParamField body="(none)" type="object">
+  No parameters are required. Pass `'{}'`.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "userlist": [
+        {
+            "userid": "zhangsan",
+            "name": "张三",
+            "alias": "Sam"
+        },
+        {
+            "userid": "lisi",
+            "name": "李四",
+            "alias": ""
+        }
+    ]
+}
+```
+
+<ResponseField name="errcode" type="integer" required>
+  Return code. `0` indicates success.
+</ResponseField>
+
+<ResponseField name="errmsg" type="string" required>
+  Error message. `"ok"` on success.
+</ResponseField>
+
+<ResponseField name="userlist" type="array" required>
+  List of visible members.
+
+  <Expandable title="userlist item properties">
+    <ResponseField name="userid" type="string" required>
+      Unique user identifier. Use this value when passing a user reference to other commands.
+    </ResponseField>
+    <ResponseField name="name" type="string" required>
+      Display name of the member.
+    </ResponseField>
+    <ResponseField name="alias" type="string">
+      Optional alias (English name). May be an empty string.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Notes
+
+<Warning>
+  If `userlist` contains more than 10 members, the API returns an error. wecom-cli currently only supports organizations with 10 or fewer members.
+</Warning>
+
+- Results are **scoped to your bot's visibility permissions**. Members outside your bot's accessible range are not returned.
+- `userid` is the stable identifier for a member. Pass it to other commands such as `msg send_message` or `meeting create_meeting` when a user reference is required.
+- `alias` may be an empty string — check for this before using it in name lookups.
+- If `errcode` is not `0`, the call failed. Check `errmsg` for the error description.

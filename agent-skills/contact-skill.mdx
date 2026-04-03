@@ -1,0 +1,130 @@
+---
+title: "Contact skill"
+description: "Query and search WeCom members visible to your account by name or alias."
+---
+
+The `wecomcli-contact` skill gives the AI the ability to fetch your visible contact list and search it locally by name or alias. It is also used by other skills — such as `wecomcli-msg`, `wecomcli-meeting`, and `wecomcli-todo` — to translate internal `userid` values into readable names before displaying results to you.
+
+<Note>
+  This skill returns only the members your bot account has permission to see. It does not return every member in your organization.
+</Note>
+
+## Available operation
+
+### get_userlist
+
+Fetches all members within your bot's visible scope.
+
+```bash
+wecom-cli contact get_userlist '{}'
+```
+
+`get_userlist` takes no input parameters. Pass an empty JSON object.
+
+**Response:**
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "userlist": [
+        {
+            "userid": "zhangsan",
+            "name": "张三",
+            "alias": "Sam"
+        },
+        {
+            "userid": "lisi",
+            "name": "李四",
+            "alias": ""
+        }
+    ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `errcode` | integer | Return code. `0` indicates success. |
+| `errmsg` | string | Error message. `"ok"` on success. |
+| `userlist[].userid` | string | Unique user identifier used by other commands. |
+| `userlist[].name` | string | Display name. |
+| `userlist[].alias` | string | English alias. May be an empty string. |
+
+## How the AI searches contacts
+
+The skill fetches the full member list once and filters it locally. The AI never calls `get_userlist` more than once per task — even when searching for multiple people.
+
+| Scenario | Behavior |
+|----------|----------|
+| `name` or `alias` exactly matches your query | Uses that result directly, no confirmation needed. |
+| `name` or `alias` contains your query (unique result) | Uses that result and shows you the match. |
+| Multiple members match your query | Shows you a candidate list and asks you to choose. |
+| No members match | Tells you that no matching member was found. |
+
+<Warning>
+  If `userlist` returns more than 10 members, the skill stops immediately and informs you that the contact list exceeds the supported limit. This skill is designed for small organizations (10 or fewer visible members).
+</Warning>
+
+## Key constraints
+
+- `alias` may be an empty string — the AI checks for this before using it in searches.
+- When multiple people share the same name, the AI presents all candidates and waits for your selection. It does not choose for you.
+- If `errcode` is not `0`, the AI reports the `errmsg` value to you.
+
+## Typical workflows
+
+### Finding a person
+
+<Steps>
+  <Step title="Fetch the contact list">
+    ```bash
+    wecom-cli contact get_userlist '{}'
+    ```
+  </Step>
+  <Step title="Filter locally">
+    The AI searches `name` and `alias` fields for members that match your query.
+  </Step>
+  <Step title="Present the result">
+    If one match is found, the AI shows the name, alias, and `userid`. If multiple matches are found, it asks you to pick one.
+  </Step>
+</Steps>
+
+**Example — single match:**
+
+```
+Found member:
+- Name: 张三
+- Alias: Sam
+- User ID: zhangsan
+```
+
+**Example — multiple matches:**
+
+```
+Multiple members matched. Which did you mean?
+
+1. 张三 (alias: Sam, ID: zhangsan)
+2. 张三丰 (alias: Sam2, ID: zhangsan2)
+```
+
+### Translating a userid for another operation
+
+When you ask the AI to send a message or create a meeting for a named person, it first calls `get_userlist` to resolve the name to a `userid`, then passes that `userid` to the target command.
+
+<Steps>
+  <Step title="Fetch the contact list">
+    ```bash
+    wecom-cli contact get_userlist '{}'
+    ```
+  </Step>
+  <Step title="Match the name">
+    The AI finds the `userid` for the person you named.
+  </Step>
+  <Step title="Pass the userid to the next command">
+    For example, the AI sends a message to that `userid` via `wecom-cli msg send_message`.
+  </Step>
+</Steps>
+
+### Searching for multiple people at once
+
+If you ask about several people in one request, the AI calls `get_userlist` once and searches the result multiple times — once per person. It then presents all the results together.

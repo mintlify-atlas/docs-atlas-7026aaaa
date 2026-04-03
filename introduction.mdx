@@ -1,0 +1,61 @@
+---
+title: "Introduction"
+description: "wecom-cli is the official command-line tool for WeCom (企业微信) — operate your enterprise workspace from the terminal, or let AI agents do it for you."
+---
+
+wecom-cli lets you manage WeCom contacts, messages, meetings, schedules, todos, and documents directly from the terminal. It is distributed as an npm package and ships pre-compiled Rust binaries for every supported platform — no Rust toolchain required.
+
+It is designed to work equally well for humans running ad-hoc commands and for AI agents automating workflows through bundled skills.
+
+## Key features
+
+<CardGroup cols={3}>
+  <Card title="Contacts" icon="address-book" href="/commands/contact">
+    Query and search members within your visible organization scope. Returns user ID, name, and alias.
+  </Card>
+  <Card title="Messages" icon="message" href="/commands/messages">
+    List conversations, retrieve message history (text, images, files, audio, video), download media, and send text messages.
+  </Card>
+  <Card title="Meetings" icon="video" href="/commands/meetings">
+    Create scheduled video meetings, cancel them, update attendees, and query meeting lists and details.
+  </Card>
+  <Card title="Schedules" icon="calendar" href="/commands/schedules">
+    Full create/read/update/delete for calendar events, plus multi-user availability queries.
+  </Card>
+  <Card title="Todos" icon="circle-check" href="/commands/todos">
+    Create, read, update, and delete work items. Change completion status per user.
+  </Card>
+  <Card title="Documents" icon="file-lines" href="/commands/docs">
+    Create and edit docs and smart spreadsheets (智能表格), manage sub-sheets, fields, and records.
+  </Card>
+</CardGroup>
+
+## Supported platforms
+
+wecom-cli ships platform-specific binaries. The npm package automatically selects the correct one at install time.
+
+| Platform | Architecture |
+| -------- | ------------ |
+| macOS    | x64, arm64   |
+| Linux    | x64, arm64   |
+| Windows  | x64          |
+
+## Prerequisites
+
+- **Node.js** `>= 18`
+- A **WeCom (企业微信) account** in an organization with **10 or fewer members**
+
+<Note>
+  wecom-cli currently only supports organizations with 10 or fewer members. Larger organizations are not yet supported.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Install wecom-cli and run your first command in minutes.
+  </Card>
+  <Card title="Command reference" icon="terminal" href="/commands/init">
+    Browse every command, category, and argument.
+  </Card>
+</CardGroup>

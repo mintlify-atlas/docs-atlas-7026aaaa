@@ -1,0 +1,186 @@
+---
+title: "Messages skill"
+description: "Read WeCom conversations, download media files, and send text messages through wecom-cli."
+---
+
+The `wecomcli-msg` skill gives the AI the ability to interact with your WeCom message history. It can list your recent conversations, retrieve message records, download attached media files, and send text messages to individuals or groups.
+
+## Available operations
+
+### get_msg_chat_list
+
+Returns a list of conversations that had activity in a given time window.
+
+```bash
+wecom-cli msg get_msg_chat_list '{"begin_time": "2026-03-11 00:00:00", "end_time": "2026-03-17 23:59:59"}'
+```
+
+Supports pagination via a `cursor` parameter. If `has_more` is `true` in the response, more conversations are available.
+
+### get_message
+
+Retrieves the message records for a specific conversation.
+
+```bash
+wecom-cli msg get_message '{"chat_type": 1, "chatid": "zhangsan", "begin_time": "2026-03-17 09:00:00", "end_time": "2026-03-17 18:00:00"}'
+```
+
+- `chat_type`: `1` for direct messages, `2` for group chats.
+- Supports text, image, file, voice, and video message types.
+- Only supports messages from the last 7 days.
+- Supports pagination via `next_cursor`.
+
+### get_msg_media
+
+Downloads a media file from a message and returns its local path.
+
+```bash
+wecom-cli msg get_msg_media '{"media_id": "MEDIAID_xxxxxx"}'
+```
+
+Returns `local_path`, file name, type, size, and MIME type (`content_type`). Use this to retrieve the actual content of image, file, voice, and video messages.
+
+### send_message
+
+Sends a text message to a direct conversation or group chat.
+
+```bash
+wecom-cli msg send_message '{"chat_type": 1, "chatid": "zhangsan", "msgtype": "text", "text": {"content": "hello world"}}'
+```
+
+`msgtype` is always `"text"`.
+
+## Core rules
+
+### Time format
+
+All time parameters use `YYYY-MM-DD HH:mm:ss` format. When you don't specify a range, the AI defaults to the last 7 days. Relative expressions like "yesterday" or "the last three days" are automatically converted to exact timestamps.
+
+<Warning>
+  The start time cannot be earlier than 7 days before the current time. The AI will adjust the range if you request older messages.
+</Warning>
+
+### Resolving a chat ID
+
+When you refer to a person or group by name rather than by ID, the AI follows this process:
+
+1. Calls `get_msg_chat_list` for the relevant time range.
+2. Matches the `chat_name` field against your query.
+3. Uses a single exact match directly. If multiple conversations match, it shows you the candidates and asks you to choose.
+
+The AI infers `chat_type` from context: if you explicitly mention a group chat, it uses `chat_type=2`; otherwise it defaults to `chat_type=1` (direct message).
+
+### Translating user IDs to names
+
+Message records contain `userid` values, not names. Before displaying messages, the AI calls `wecomcli-contact` to build a `userid` → name mapping and substitutes names in the output. If a `userid` is not found in the contact list, the raw ID is shown instead.
+
+### Mandatory file path announcement
+
+After downloading any media file, the AI **must** immediately tell you the full local path of every downloaded file and the directory where they were saved — without waiting for you to ask. It must then ask whether you want to delete the temporary files.
+
+<Warning>
+  These two steps (announcing file locations and asking about deletion) are required and cannot be skipped, even if you did not ask about file locations.
+</Warning>
+
+## Typical workflows
+
+### Viewing your recent conversations
+
+<Steps>
+  <Step title="Determine the time range">
+    Specify a range, or the AI uses the last 7 days by default.
+  </Step>
+  <Step title="Fetch the conversation list">
+    ```bash
+    wecom-cli msg get_msg_chat_list '{"begin_time": "2026-03-11 00:00:00", "end_time": "2026-03-17 23:59:59"}'
+    ```
+  </Step>
+  <Step title="Review results">
+    The AI shows conversation names, last message time, and message count. If `has_more` is `true`, it tells you more are available.
+  </Step>
+</Steps>
+
+### Reading a conversation
+
+<Steps>
+  <Step title="Resolve the chat ID">
+    If you provided a name, the AI calls `get_msg_chat_list` and matches `chat_name` to find the `chatid`.
+  </Step>
+  <Step title="Fetch messages">
+    ```bash
+    wecom-cli msg get_message '{"chat_type": 1, "chatid": "zhangsan", "begin_time": "2026-03-17 09:00:00", "end_time": "2026-03-17 18:00:00"}'
+    ```
+  </Step>
+  <Step title="Translate user IDs">
+    The AI calls `wecomcli-contact` to build a name map and replaces `userid` values in the output.
+  </Step>
+  <Step title="Display messages">
+    Messages are shown in this format:
+
+    | Type | Format |
+    |------|--------|
+    | Text | `Name [time]: content` |
+    | Image | `Name [time]: [image]` |
+    | File | `Name [time]: [file] filename` |
+    | Voice | `Name [time]: [voice] transcription` |
+    | Video | `Name [time]: [video]` |
+  </Step>
+  <Step title="Offer to download media (if present)">
+    After displaying messages, if any non-text messages exist, the AI tells you how many there are and asks whether you want to download them.
+  </Step>
+</Steps>
+
+### Downloading media files
+
+<Steps>
+  <Step title="Download each file">
+    ```bash
+    wecom-cli msg get_msg_media '{"media_id": "MEDIAID_xxxxxx"}'
+    ```
+  </Step>
+  <Step title="Verify and fix file extensions">
+    The AI checks that the file extension matches the `content_type` MIME type returned. If the extension is missing or incorrect, the AI renames the file accordingly (for example, `image/png` → `.png`).
+  </Step>
+  <Step title="Announce file locations (required)">
+    The AI immediately reports where each file was saved:
+
+    ```
+    Files downloaded to:
+    - Image: /tmp/wecom/screenshot.png
+    - File: /tmp/wecom/report.pdf
+
+    You can find all downloaded files in /tmp/wecom/.
+    ```
+  </Step>
+  <Step title="Ask about cleanup (required)">
+    The AI asks whether you want to delete the downloaded files. If you confirm, it removes them from disk.
+  </Step>
+</Steps>
+
+### Sending a message
+
+<Steps>
+  <Step title="Resolve the chat ID">
+    The AI identifies the correct `chatid` and `chat_type` from the conversation list or contact list.
+  </Step>
+  <Step title="Confirm before sending">
+    The AI asks you to confirm the recipient and message content before sending.
+  </Step>
+  <Step title="Send the message">
+    ```bash
+    wecom-cli msg send_message '{"chat_type": 1, "chatid": "zhangsan", "msgtype": "text", "text": {"content": "Tomorrow's meeting is moved to 3 PM"}}'
+    ```
+  </Step>
+  <Step title="Report the result">
+    The AI shows whether the message was sent successfully.
+  </Step>
+</Steps>
+
+## Error handling
+
+| Error | Behavior |
+|-------|----------|
+| Time range exceeds 7 days | Reports the limit and adjusts to a valid range. |
+| Conversation not found | Tells you no matching conversation was found. |
+| API error (`errcode` ≠ `0`) | Shows the specific error message. Retries up to 3 times on HTTP errors. |
+| Network failure | Retries automatically up to 3 times. |

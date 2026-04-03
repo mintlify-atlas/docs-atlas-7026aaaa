@@ -1,0 +1,533 @@
+---
+title: "doc"
+description: "Create and manage WeCom documents and smart spreadsheets (智能表格) — read, write, manage sheets, fields, and records."
+---
+
+The `doc` category covers WeCom document management and smart spreadsheets (智能表格). You can create new documents, read their content as Markdown, overwrite content, manage sub-sheets and field definitions, and perform full CRUD on table records.
+
+```bash
+wecom-cli doc <method> [json_args]
+```
+
+To list all available methods:
+
+```bash
+wecom-cli doc --help
+```
+
+---
+
+## Document types
+
+| `doc_type` | Type |
+| ---------- | ---- |
+| `3` | Standard document |
+| `10` | Smart spreadsheet (智能表格) |
+
+---
+
+## Locating a document
+
+All methods accept either a `docid` or a `url` to identify the target document. You only need to provide one.
+
+```json
+{"docid": "DOCID"}
+```
+
+```json
+{"url": "https://doc.weixin.qq.com/doc/xxxxxxxx"}
+```
+
+---
+
+## Document management
+
+### create\_doc
+
+Creates a new document or smart spreadsheet.
+
+<CodeGroup>
+
+```bash create document
+wecom-cli doc create_doc '{"doc_type": 3, "doc_name": "项目周报"}'
+```
+
+```bash create smart spreadsheet
+wecom-cli doc create_doc '{"doc_type": 10, "doc_name": "任务跟踪表"}'
+```
+
+</CodeGroup>
+
+#### Parameters
+
+<ParamField body="doc_type" type="integer" required>
+  Document type. `3` = standard document, `10` = smart spreadsheet.
+</ParamField>
+
+<ParamField body="doc_name" type="string" required>
+  Name for the new document.
+</ParamField>
+
+#### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "url": "https://doc.weixin.qq.com/doc/xxxxxxxx",
+    "docid": "DOCID"
+}
+```
+
+<ResponseField name="url" type="string">
+  Direct URL to the document.
+</ResponseField>
+
+<ResponseField name="docid" type="string">
+  Unique document identifier. Save this value — it is only returned at creation time.
+</ResponseField>
+
+<Note>
+  When you create a smart spreadsheet, it includes one default sub-sheet. Use `smartsheet_get_sheet` to retrieve its `sheet_id` before adding fields or records.
+</Note>
+
+---
+
+### get\_doc\_content
+
+Retrieves the full content of a document as Markdown. Uses an **async polling mechanism**: the first call returns a `task_id`. If `task_done` is `false`, call again with that `task_id` until `task_done` is `true`.
+
+First call:
+
+```bash
+wecom-cli doc get_doc_content '{"docid": "DOCID", "type": 2}'
+```
+
+Poll until complete:
+
+```bash
+wecom-cli doc get_doc_content '{"docid": "DOCID", "type": 2, "task_id": "TASK_ID"}'
+```
+
+Via URL:
+
+```bash
+wecom-cli doc get_doc_content '{"url": "https://doc.weixin.qq.com/doc/xxxxxxxx", "type": 2}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string">
+  Document ID. Required unless `url` is provided.
+</ParamField>
+
+<ParamField body="url" type="string">
+  Document URL. Required unless `docid` is provided.
+</ParamField>
+
+<ParamField body="type" type="integer" required>
+  Content format. `2` = Markdown (currently the only supported value).
+</ParamField>
+
+<ParamField body="task_id" type="string">
+  Task ID from a previous response. Pass this on follow-up calls until `task_done` is `true`.
+</ParamField>
+
+#### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "task_id": "TASK_ID",
+    "task_done": true,
+    "content": "# 项目周报\n\n本周主要工作..."
+}
+```
+
+<ResponseField name="task_id" type="string">
+  Use this value on follow-up calls if `task_done` is `false`.
+</ResponseField>
+
+<ResponseField name="task_done" type="boolean">
+  `true` when the content is ready. If `false`, call again with the same `task_id`.
+</ResponseField>
+
+<ResponseField name="content" type="string">
+  Full document content in Markdown format. Only populated when `task_done` is `true`.
+</ResponseField>
+
+---
+
+### edit\_doc\_content
+
+Overwrites the body of a document with Markdown content. This replaces the entire document body.
+
+```bash
+wecom-cli doc edit_doc_content '{"docid": "DOCID", "content": "# 标题\n\n正文内容", "content_type": 1}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="content" type="string" required>
+  New document content in Markdown format.
+</ParamField>
+
+<ParamField body="content_type" type="integer" required>
+  Content format. Fixed value: `1` (Markdown).
+</ParamField>
+
+#### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+<Warning>
+  `edit_doc_content` **overwrites** the entire document body. Read the current content with `get_doc_content` first if you need to make partial edits.
+</Warning>
+
+---
+
+## Smart spreadsheet — structure management
+
+### smartsheet\_get\_sheet
+
+Lists all sub-sheets in a smart spreadsheet.
+
+```bash
+wecom-cli doc smartsheet_get_sheet '{"docid": "DOCID"}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string">
+  Document ID. Required unless `url` is provided.
+</ParamField>
+
+<ParamField body="url" type="string">
+  Document URL. Required unless `docid` is provided.
+</ParamField>
+
+#### Response
+
+Returns an array of sub-sheet objects, each containing `sheet_id`, `title`, and type information. Save the `sheet_id` for use in field and record operations.
+
+---
+
+### smartsheet\_add\_sheet
+
+Adds a new empty sub-sheet to a smart spreadsheet.
+
+```bash
+wecom-cli doc smartsheet_add_sheet '{"docid": "DOCID", "properties": {"title": "新子表"}}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="properties" type="object" required>
+  Sub-sheet properties. Must include a `title` field.
+</ParamField>
+
+<Note>
+  A new smart spreadsheet already contains one default sub-sheet. Only call `smartsheet_add_sheet` when you need additional sub-sheets.
+</Note>
+
+---
+
+### smartsheet\_update\_sheet
+
+Renames a sub-sheet.
+
+```bash
+wecom-cli doc smartsheet_update_sheet '{"docid": "DOCID", "properties": {"sheet_id": "SHEET_ID", "title": "重命名的子表"}}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="properties" type="object" required>
+  Must include `sheet_id` and the new `title`.
+</ParamField>
+
+---
+
+### smartsheet\_delete\_sheet
+
+Permanently deletes a sub-sheet and all its data.
+
+```bash
+wecom-cli doc smartsheet_delete_sheet '{"docid": "DOCID", "sheet_id": "SHEET_ID"}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="sheet_id" type="string" required>
+  ID of the sub-sheet to delete. Obtain from `smartsheet_get_sheet`.
+</ParamField>
+
+<Warning>
+  Sub-sheet deletion is permanent and cannot be undone.
+</Warning>
+
+---
+
+### smartsheet\_get\_fields
+
+Lists all fields (columns) in a sub-sheet.
+
+```bash
+wecom-cli doc smartsheet_get_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID"}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="sheet_id" type="string" required>
+  Sub-sheet ID.
+</ParamField>
+
+#### Response
+
+Returns an array of field objects, each with `field_id`, `field_title`, and `field_type`. Always call this before adding records to understand the column types.
+
+---
+
+### smartsheet\_add\_fields
+
+Adds one or more fields (columns) to a sub-sheet. A single sub-sheet supports a maximum of 150 fields.
+
+```bash
+wecom-cli doc smartsheet_add_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID", "fields": [{"field_title": "任务名称", "field_type": "FIELD_TYPE_TEXT"}]}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="sheet_id" type="string" required>
+  Target sub-sheet ID.
+</ParamField>
+
+<ParamField body="fields" type="array" required>
+  List of field definitions. Each item must include `field_title` and `field_type`.
+
+  Common `field_type` values: `FIELD_TYPE_TEXT`, `FIELD_TYPE_NUMBER`, `FIELD_TYPE_DATE`, `FIELD_TYPE_USER`, `FIELD_TYPE_SINGLE_SELECT`, `FIELD_TYPE_MULTI_SELECT`.
+</ParamField>
+
+---
+
+### smartsheet\_update\_fields
+
+Renames one or more fields. You can only change `field_title` — the `field_type` must be passed unchanged.
+
+```bash
+wecom-cli doc smartsheet_update_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID", "fields": [{"field_id": "FIELD_ID", "field_title": "新列名", "field_type": "FIELD_TYPE_TEXT"}]}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="sheet_id" type="string" required>
+  Target sub-sheet ID.
+</ParamField>
+
+<ParamField body="fields" type="array" required>
+  List of field updates. Each item must include `field_id`, the new `field_title`, and the original `field_type` (unchanged).
+</ParamField>
+
+<Note>
+  You cannot change a field's type — only its title. `field_title` cannot be set to the same value it already has.
+</Note>
+
+---
+
+### smartsheet\_delete\_fields
+
+Permanently deletes one or more fields (columns) from a sub-sheet.
+
+```bash
+wecom-cli doc smartsheet_delete_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID", "field_ids": ["FIELD_ID"]}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="sheet_id" type="string" required>
+  Target sub-sheet ID.
+</ParamField>
+
+<ParamField body="field_ids" type="array" required>
+  List of field IDs to delete. Obtain from `smartsheet_get_fields`.
+</ParamField>
+
+<Warning>
+  Field deletion is permanent and cannot be undone. All cell data in the deleted column is lost.
+</Warning>
+
+---
+
+## Smart spreadsheet — data management
+
+### smartsheet\_get\_records
+
+Retrieves all records (rows) from a sub-sheet.
+
+<CodeGroup>
+
+```bash by docid
+wecom-cli doc smartsheet_get_records '{"docid": "DOCID", "sheet_id": "SHEET_ID"}'
+```
+
+```bash by url
+wecom-cli doc smartsheet_get_records '{"url": "https://doc.weixin.qq.com/smartsheet/xxxxxxxx", "sheet_id": "SHEET_ID"}'
+```
+
+</CodeGroup>
+
+#### Parameters
+
+<ParamField body="docid" type="string">
+  Document ID. Required unless `url` is provided.
+</ParamField>
+
+<ParamField body="url" type="string">
+  Document URL. Required unless `docid` is provided.
+</ParamField>
+
+<ParamField body="sheet_id" type="string" required>
+  Sub-sheet ID.
+</ParamField>
+
+#### Response
+
+Returns an array of record objects. Each record includes a `record_id` and a `values` map keyed by field title. Save `record_id` values to update or delete specific rows.
+
+---
+
+### smartsheet\_add\_records
+
+Adds one or more records (rows). Recommended maximum 500 rows per call.
+
+Before calling, use `smartsheet_get_fields` to understand the field types in the target sub-sheet.
+
+```bash
+wecom-cli doc smartsheet_add_records '{"docid": "DOCID", "sheet_id": "SHEET_ID", "records": [{"values": {"任务名称": [{"type": "text", "text": "完成需求文档"}], "优先级": [{"text": "高"}]}}]}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="sheet_id" type="string" required>
+  Target sub-sheet ID.
+</ParamField>
+
+<ParamField body="records" type="array" required>
+  List of record objects. Each item contains a `values` map where keys are field titles and values are arrays of cell value objects.
+
+  For `FIELD_TYPE_USER` fields, the value must be a `userid` obtained from [`contact get_userlist`](/commands/contact). You cannot use display names directly.
+</ParamField>
+
+---
+
+### smartsheet\_update\_records
+
+Updates one or more existing records. Recommended maximum 500 rows per call.
+
+```bash
+wecom-cli doc smartsheet_update_records '{"docid": "DOCID", "sheet_id": "SHEET_ID", "key_type": "CELL_VALUE_KEY_TYPE_FIELD_TITLE", "records": [{"record_id": "RECORD_ID", "values": {"任务名称": [{"type": "text", "text": "更新后的内容"}]}}]}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="sheet_id" type="string" required>
+  Target sub-sheet ID.
+</ParamField>
+
+<ParamField body="key_type" type="string" required>
+  Specifies whether the `values` keys are field titles or field IDs.
+  - `CELL_VALUE_KEY_TYPE_FIELD_TITLE` — keys are field titles (e.g., `"任务名称"`)
+  - `CELL_VALUE_KEY_TYPE_FIELD_ID` — keys are field IDs
+</ParamField>
+
+<ParamField body="records" type="array" required>
+  List of record updates. Each item must include a `record_id` (from `smartsheet_get_records`) and a `values` map with the fields to update.
+</ParamField>
+
+<Note>
+  The following system fields cannot be updated: creation time, last edit time, creator, and last editor.
+</Note>
+
+---
+
+### smartsheet\_delete\_records
+
+Permanently deletes one or more records (rows). Maximum 500 rows per call.
+
+```bash
+wecom-cli doc smartsheet_delete_records '{"docid": "DOCID", "sheet_id": "SHEET_ID", "record_ids": ["RECORD_ID_1", "RECORD_ID_2"]}'
+```
+
+#### Parameters
+
+<ParamField body="docid" type="string" required>
+  Document ID.
+</ParamField>
+
+<ParamField body="sheet_id" type="string" required>
+  Target sub-sheet ID.
+</ParamField>
+
+<ParamField body="record_ids" type="array" required>
+  List of record IDs to delete. Obtain from `smartsheet_get_records`. Maximum 500 per call.
+</ParamField>
+
+<Warning>
+  Record deletion is permanent and cannot be undone.
+</Warning>
+
+---
+
+## Notes
+
+- `docid` is only returned at document creation time — save it immediately.
+- `FIELD_TYPE_USER` cell values require a `userid`, not a display name. Use [`contact get_userlist`](/commands/contact) to look up the correct ID.
+- `get_doc_content` uses async polling. Always check `task_done` before using the returned `content`.
+- For single/multi-select fields, cell values must match existing option IDs — retrieve them first with `smartsheet_get_fields`.
+- If `errcode` is not `0`, the call failed. You can retry once; if it fails again, check `errmsg` for the error description.

@@ -1,0 +1,291 @@
+---
+title: "msg"
+description: "List chat sessions, retrieve message history, download media files, and send text messages."
+---
+
+The `msg` category gives you access to WeCom chat data: conversation lists, full message history (text, images, files, audio, video), media file downloads, and outbound text messages.
+
+```bash
+wecom-cli msg <method> [json_args]
+```
+
+To list all available methods:
+
+```bash
+wecom-cli msg --help
+```
+
+---
+
+## Methods
+
+<CardGroup cols={2}>
+  <Card title="get_msg_chat_list" icon="list">
+    List conversations that had activity in a time window.
+  </Card>
+  <Card title="get_message" icon="comments">
+    Pull message history from a specific chat.
+  </Card>
+  <Card title="get_msg_media" icon="file-arrow-down">
+    Download a media file (image, file, audio, video) by ID.
+  </Card>
+  <Card title="send_message" icon="paper-plane">
+    Send a text message to a single chat or group.
+  </Card>
+</CardGroup>
+
+---
+
+## Time format
+
+All time parameters use `YYYY-MM-DD HH:mm:ss` format. The maximum lookback window is **7 days** from the current time.
+
+---
+
+## get\_msg\_chat\_list
+
+Returns a list of conversations that had messages within the specified time range.
+
+```bash
+wecom-cli msg get_msg_chat_list '{"begin_time": "2026-03-11 00:00:00", "end_time": "2026-03-17 23:59:59"}'
+```
+
+### Parameters
+
+<ParamField body="begin_time" type="string" required>
+  Start of the time range. Format: `YYYY-MM-DD HH:mm:ss`. Cannot be earlier than 7 days before the current time.
+</ParamField>
+
+<ParamField body="end_time" type="string" required>
+  End of the time range. Format: `YYYY-MM-DD HH:mm:ss`. Cannot be later than the current time.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "chats": [
+        {
+            "chatid": "zhangsan",
+            "chat_name": "张三"
+        }
+    ],
+    "has_more": false
+}
+```
+
+<ResponseField name="chats" type="array">
+  List of conversations with activity in the given window.
+
+  <Expandable title="chats item properties">
+    <ResponseField name="chatid" type="string">
+      Unique identifier for the chat. Pass this to `get_message` or `send_message`.
+    </ResponseField>
+    <ResponseField name="chat_name" type="string">
+      Display name of the chat or person.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="has_more" type="boolean">
+  `true` if more conversations exist beyond this page.
+</ResponseField>
+
+---
+
+## get\_message
+
+Retrieves messages from a specific conversation within a time range.
+
+```bash
+wecom-cli msg get_message '{"chat_type": 1, "chatid": "zhangsan", "begin_time": "2026-03-17 09:00:00", "end_time": "2026-03-17 18:00:00"}'
+```
+
+### Parameters
+
+<ParamField body="chat_type" type="integer" required>
+  Conversation type. `1` = single (direct) chat, `2` = group chat.
+</ParamField>
+
+<ParamField body="chatid" type="string" required>
+  The conversation identifier. For single chats this is the `userid` of the other party; for group chats this is the group ID. Obtain it from `get_msg_chat_list`.
+</ParamField>
+
+<ParamField body="begin_time" type="string" required>
+  Start of the time range. Format: `YYYY-MM-DD HH:mm:ss`. Cannot be earlier than 7 days ago.
+</ParamField>
+
+<ParamField body="end_time" type="string" required>
+  End of the time range. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "messages": [
+        {
+            "msgid": "MSG_ID",
+            "sender": "zhangsan",
+            "send_time": "2026-03-17 10:30:00",
+            "msgtype": "text",
+            "text": {
+                "content": "hello world"
+            }
+        },
+        {
+            "msgid": "MSG_ID_2",
+            "sender": "lisi",
+            "send_time": "2026-03-17 10:31:00",
+            "msgtype": "image",
+            "image": {
+                "media_id": "MEDIAID_xxxxxx"
+            }
+        }
+    ],
+    "next_cursor": "",
+    "has_more": false
+}
+```
+
+<ResponseField name="messages" type="array">
+  Ordered list of messages.
+
+  <Expandable title="message item properties">
+    <ResponseField name="msgid" type="string">
+      Unique message identifier.
+    </ResponseField>
+    <ResponseField name="sender" type="string">
+      `userid` of the sender.
+    </ResponseField>
+    <ResponseField name="send_time" type="string">
+      Time the message was sent.
+    </ResponseField>
+    <ResponseField name="msgtype" type="string">
+      Message type: `text`, `image`, `file`, `voice`, or `video`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="next_cursor" type="string">
+  Pagination cursor. Pass this as `cursor` on the next call if `has_more` is `true`.
+</ResponseField>
+
+<ResponseField name="has_more" type="boolean">
+  `true` if more messages exist beyond this page.
+</ResponseField>
+
+<Note>
+  Only the last 7 days of messages are accessible. `begin_time` values earlier than 7 days ago will return an error.
+</Note>
+
+---
+
+## get\_msg\_media
+
+Downloads a media file (image, audio, video, or attachment) by its `media_id` and returns the local path.
+
+```bash
+wecom-cli msg get_msg_media '{"media_id": "MEDIAID_xxxxxx"}'
+```
+
+### Parameters
+
+<ParamField body="media_id" type="string" required>
+  The media file identifier. Obtain this from a message returned by `get_message` (e.g., `image.media_id`, `file.media_id`).
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "local_path": "/tmp/wecom/media/MEDIAID_xxxxxx",
+    "name": "screenshot.png",
+    "content_type": "image/png",
+    "size": 204800
+}
+```
+
+<ResponseField name="local_path" type="string">
+  Absolute path to the downloaded file on the local filesystem.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Original file name as reported by the WeCom API.
+</ResponseField>
+
+<ResponseField name="content_type" type="string">
+  MIME type of the file (e.g., `image/png`, `application/pdf`, `audio/amr`, `video/mp4`).
+</ResponseField>
+
+<ResponseField name="size" type="integer">
+  File size in bytes.
+</ResponseField>
+
+<Warning>
+  `get_msg_media` has a **120-second timeout** (all other methods time out after 30 seconds). Large files may take longer to download.
+</Warning>
+
+<Note>
+  Files are saved to `<system_tmp>/wecom/media` by default. Override the root with the `WECOM_CLI_TMP_DIR` environment variable. See [Configuration](/configuration) for details.
+</Note>
+
+---
+
+## send\_message
+
+Sends a text message to a single chat or group chat.
+
+```bash
+wecom-cli msg send_message '{"chat_type": 1, "chatid": "zhangsan", "msgtype": "text", "text": {"content": "hello world"}}'
+```
+
+### Parameters
+
+<ParamField body="chat_type" type="integer" required>
+  Conversation type. `1` = single (direct) chat, `2` = group chat.
+</ParamField>
+
+<ParamField body="chatid" type="string" required>
+  Target conversation identifier. For single chats this is the recipient's `userid`; for group chats this is the group ID.
+</ParamField>
+
+<ParamField body="msgtype" type="string" required>
+  Message type. Currently only `"text"` is supported.
+</ParamField>
+
+<ParamField body="text" type="object" required>
+  Message body object.
+
+  <Expandable title="text properties">
+    <ParamField body="content" type="string" required>
+      The text content to send.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+---
+
+## Timeouts
+
+| Method | Timeout |
+| ------ | ------- |
+| `get_msg_chat_list` | 30 seconds |
+| `get_message` | 30 seconds |
+| `send_message` | 30 seconds |
+| `get_msg_media` | 120 seconds |

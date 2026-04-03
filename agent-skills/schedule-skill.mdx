@@ -1,0 +1,227 @@
+---
+title: "Schedule skill"
+description: "Query, create, modify, and cancel WeCom calendar events, manage attendees, and check multi-user availability."
+---
+
+The `wecomcli-schedule` skill gives the AI full control over your WeCom calendar. It can list upcoming events, retrieve their details, create new events with reminders and attendees, modify existing events, cancel them, and check the availability of multiple people to find a common free slot.
+
+<Note>
+  Schedule queries are limited to the current day ± 30 days. All time parameters use `YYYY-MM-DD HH:mm:ss` format. Return values use Unix timestamps (seconds) and are converted to readable format before being shown to you.
+</Note>
+
+## Available operations
+
+### get_schedule_list_by_range
+
+Returns the list of schedule IDs within a time range.
+
+```bash
+wecom-cli schedule get_schedule_list_by_range '{"start_time": "2026-03-17 00:00:00", "end_time": "2026-03-17 23:59:59"}'
+```
+
+Returns `schedule_id_list`. Only supports the current day ± 30 days.
+
+### get_schedule_detail
+
+Returns full details for one or more schedules by ID. Supports 1–50 IDs per request.
+
+```bash
+wecom-cli schedule get_schedule_detail '{"schedule_id_list": ["SCHEDULE_ID_1", "SCHEDULE_ID_2"]}'
+```
+
+Key fields in the response: title (`summary`), start/end times, location, description, attendees, and reminder settings.
+
+### create_schedule
+
+Creates a new calendar event.
+
+```bash
+wecom-cli schedule create_schedule '{"schedule": {"start_time": "2026-03-18 14:00:00", "end_time": "2026-03-18 15:00:00", "summary": "Requirements review", "attendees": [{"userid": "USER_ID"}], "reminders": {"is_remind": 1, "remind_before_event_secs": 900, "timezone": 8}}}'
+```
+
+**Key parameters inside the `schedule` object:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `summary` | string | Event title. |
+| `start_time` | string | Start time in `YYYY-MM-DD HH:mm:ss`. |
+| `end_time` | string | End time in `YYYY-MM-DD HH:mm:ss`. |
+| `location` | string | Optional location. |
+| `description` | string | Optional description. |
+| `attendees` | array | List of `{"userid": "..."}` objects. Obtained via `wecomcli-contact`. |
+| `reminders.is_remind` | integer | `1` to enable reminders. |
+| `reminders.remind_before_event_secs` | integer | Seconds before the event to send a reminder. Default: `900` (15 minutes). |
+| `reminders.is_whole_day` | integer | `1` for an all-day event. |
+
+### update_schedule
+
+Modifies an existing event. Only the fields you pass are changed — all other fields remain unchanged.
+
+```bash
+wecom-cli schedule update_schedule '{"schedule": {"schedule_id": "SCHEDULE_ID", "summary": "Updated title"}}'
+```
+
+### cancel_schedule
+
+Cancels a scheduled event.
+
+```bash
+wecom-cli schedule cancel_schedule '{"schedule_id": "SCHEDULE_ID"}'
+```
+
+### add_schedule_attendees
+
+Adds one or more attendees to an event.
+
+```bash
+wecom-cli schedule add_schedule_attendees '{"schedule_id": "SCHEDULE_ID", "attendees": [{"userid": "USER_ID"}]}'
+```
+
+### del_schedule_attendees
+
+Removes one or more attendees from an event.
+
+```bash
+wecom-cli schedule del_schedule_attendees '{"schedule_id": "SCHEDULE_ID", "attendees": [{"userid": "USER_ID"}]}'
+```
+
+### check_availability
+
+Queries the busy/free status of 1–10 users within a time range.
+
+```bash
+wecom-cli schedule check_availability '{"check_user_list": ["USER_ID_1", "USER_ID_2"], "start_time": "2026-03-18 09:00:00", "end_time": "2026-03-18 18:00:00"}'
+```
+
+Returns each user's list of busy time slots. The AI then computes the shared free slots across all queried users.
+
+## Typical workflows
+
+### Querying your schedule
+
+<Steps>
+  <Step title="Calculate the time range">
+    The AI translates natural language like "today", "this week", or "next Monday through Friday" into exact `YYYY-MM-DD HH:mm:ss` timestamps.
+  </Step>
+  <Step title="Fetch the schedule ID list">
+    ```bash
+    wecom-cli schedule get_schedule_list_by_range '{"start_time": "2026-03-17 00:00:00", "end_time": "2026-03-17 23:59:59"}'
+    ```
+  </Step>
+  <Step title="Fetch details in batch">
+    ```bash
+    wecom-cli schedule get_schedule_detail '{"schedule_id_list": ["SCHEDULE_ID_1", "SCHEDULE_ID_2"]}'
+    ```
+    Unix timestamps in the response are converted to readable format before display.
+  </Step>
+  <Step title="Filter by keyword (if requested)">
+    If you asked to find events matching a keyword (such as "project review"), the AI matches against the `summary` field. If nothing is found in the initial range, it expands the search up to the ± 30-day limit.
+  </Step>
+</Steps>
+
+### Creating an event
+
+<Steps>
+  <Step title="Parse the request">
+    The AI extracts the title, start/end time, location, and attendees from what you said.
+  </Step>
+  <Step title="Look up attendee userids (if needed)">
+    ```bash
+    wecom-cli contact get_userlist '{}'
+    ```
+    If multiple people share a name, the AI shows you the candidates and waits for your choice.
+  </Step>
+  <Step title="Confirm the details with you">
+    The AI shows you the title, time, location, and attendees and waits for your confirmation before proceeding.
+  </Step>
+  <Step title="Create the event">
+    ```bash
+    wecom-cli schedule create_schedule '{"schedule": {"start_time": "2026-03-18 14:00:00", "end_time": "2026-03-18 15:00:00", "summary": "Requirements review", "attendees": [{"userid": "zhangsan"}, {"userid": "lisi"}], "reminders": {"is_remind": 1, "remind_before_event_secs": 900, "timezone": 8}}}'
+    ```
+    If you did not specify a reminder, the AI defaults to 15 minutes (`remind_before_event_secs: 900`). For all-day events, it sets `is_whole_day: 1` with start/end at `00:00:00` and `23:59:59`.
+  </Step>
+</Steps>
+
+### Modifying an event
+
+<Steps>
+  <Step title="Locate the event">
+    The AI calls `get_schedule_list_by_range` and then `get_schedule_detail` to find the target event by time or title keyword. If multiple events match, it shows you a list and asks you to confirm which one.
+  </Step>
+  <Step title="Confirm the change">
+    The AI tells you what it is about to change and asks for confirmation.
+  </Step>
+  <Step title="Apply the update">
+    ```bash
+    wecom-cli schedule update_schedule '{"schedule": {"schedule_id": "SCHEDULE_ID", "summary": "Tech strategy review"}}'
+    ```
+    Only the fields you want to change are included — everything else stays the same.
+  </Step>
+</Steps>
+
+### Cancelling an event
+
+<Steps>
+  <Step title="Locate the event">
+    The AI finds the `schedule_id` by querying the schedule list and matching the title or time.
+  </Step>
+  <Step title="Confirm with you">
+    The AI shows the title and time of the event it is about to cancel and waits for your confirmation.
+  </Step>
+  <Step title="Cancel it">
+    ```bash
+    wecom-cli schedule cancel_schedule '{"schedule_id": "SCHEDULE_ID"}'
+    ```
+  </Step>
+</Steps>
+
+### Managing attendees
+
+<Steps>
+  <Step title="Look up the person's userid">
+    ```bash
+    wecom-cli contact get_userlist '{}'
+    ```
+  </Step>
+  <Step title="Locate the event">
+    The AI finds the target event using `get_schedule_list_by_range` and `get_schedule_detail`.
+  </Step>
+  <Step title="Add or remove the attendee">
+    To add:
+    ```bash
+    wecom-cli schedule add_schedule_attendees '{"schedule_id": "SCHEDULE_ID", "attendees": [{"userid": "wangwu"}]}'
+    ```
+    To remove:
+    ```bash
+    wecom-cli schedule del_schedule_attendees '{"schedule_id": "SCHEDULE_ID", "attendees": [{"userid": "lisi"}]}'
+    ```
+  </Step>
+</Steps>
+
+### Finding a free slot for a group
+
+<Steps>
+  <Step title="Look up each person's userid">
+    ```bash
+    wecom-cli contact get_userlist '{}'
+    ```
+  </Step>
+  <Step title="Check availability">
+    ```bash
+    wecom-cli schedule check_availability '{"check_user_list": ["zhangsan", "lisi"], "start_time": "2026-03-18 09:00:00", "end_time": "2026-03-18 18:00:00"}'
+    ```
+  </Step>
+  <Step title="Compute shared free slots">
+    The AI overlays each person's busy periods and identifies windows when everyone is free. It recommends one or more free slots to you.
+  </Step>
+  <Step title="Create the event (optional)">
+    Once you confirm a slot, the AI calls `create_schedule` to book the event with all attendees added automatically.
+  </Step>
+</Steps>
+
+## Key constraints
+
+- `userid` values for attendees must always come from `wecomcli-contact`. The AI never guesses IDs.
+- Internal user IDs are never shown to you — the AI always resolves them to names first.
+- Destructive actions (cancel, remove attendee) require your confirmation before the AI proceeds.
+- `check_availability` supports a maximum of 10 users per query.

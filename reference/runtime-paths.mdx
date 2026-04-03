@@ -1,0 +1,49 @@
+---
+title: "Runtime paths"
+description: "File system locations that wecom-cli reads from and writes to at runtime."
+---
+
+wecom-cli creates and reads files in these locations at runtime. All paths that derive from a configurable root can be overridden with an environment variable.
+
+| Item             | Default path                  | Notes                                           |
+| ---------------- | ----------------------------- | ----------------------------------------------- |
+| Config directory | `~/.config/wecom`             | Override with `WECOM_CLI_CONFIG_DIR`            |
+| Bot credentials  | `<config_dir>/bot.enc`        | Created by `wecom-cli init`                     |
+| MCP config cache | `<config_dir>/mcp_config.enc` | Updated automatically after a successful `init` |
+| Media temp dir   | `<system_tmp>/wecom/media`    | Override the root with `WECOM_CLI_TMP_DIR`      |
+
+<Note>
+  `<system_tmp>` is the OS temporary directory — typically `/tmp` on Linux and macOS, and the value of `%TEMP%` on Windows.
+</Note>
+
+## Config directory
+
+The config directory holds all persistent state for wecom-cli. Its default location is `~/.config/wecom`. To use a different path — for example, in a CI environment or when managing multiple accounts — set `WECOM_CLI_CONFIG_DIR`:
+
+```bash
+export WECOM_CLI_CONFIG_DIR=/opt/wecom/config
+wecom-cli init
+```
+
+All paths derived from the config directory (`bot.enc`, `mcp_config.enc`) automatically follow the override.
+
+## Credential files
+
+`bot.enc` and `mcp_config.enc` are encrypted at rest using **AES-256-GCM**. Each file prepends a random 96-bit nonce to the ciphertext, so every write produces a distinct output even for identical plaintext. The encryption key is derived from a machine-local keystore.
+
+`bot.enc` is written the first time you run `wecom-cli init`. `mcp_config.enc` is written or updated immediately after a successful `init`.
+
+<Tip>
+  To reset your credentials and start fresh, delete `~/.config/wecom/bot.enc` and run `wecom-cli init` again.
+</Tip>
+
+## Media temp directory
+
+When you call `get_msg_media`, wecom-cli downloads the media file to `<system_tmp>/wecom/media` and returns the local path in the `local_path` field of the response. To redirect downloads to a different volume or path, set `WECOM_CLI_TMP_DIR` to the desired root:
+
+```bash
+WECOM_CLI_TMP_DIR=/mnt/fast-disk wecom-cli msg get_msg_media '{"msgid": "..."}'
+# File is saved to /mnt/fast-disk/media/<filename>
+```
+
+The `media` subdirectory is always appended automatically — you only need to specify the root.

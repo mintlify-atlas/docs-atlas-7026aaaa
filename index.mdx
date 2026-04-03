@@ -1,97 +1,85 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "wecom-cli"
+description: "The official command-line tool for WeCom (企业微信) — operate your enterprise workspace from the terminal, or let AI agents do it for you."
 ---
 
-## Setting up
+wecom-cli gives you full control over WeCom's core features from the command line. Manage contacts, messages, meetings, schedules, todos, and documents — all via a single unified CLI that works equally well for humans and AI agents.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Install wecom-cli and make your first API call in minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Command Reference" icon="terminal" href="/commands/init">
+    Explore every command, subcommand, and argument.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="AI Agent Skills" icon="robot" href="/agent-skills/overview">
+    Use wecom-cli as skills in Claude, Cursor, and other AI tools.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Environment variables, runtime paths, and credential setup.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What you can do
 
-Everything you need to create world-class documentation.
+wecom-cli covers WeCom's six core business categories:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={3}>
+  <Card title="Contacts" icon="address-book" href="/commands/contact">
+    Query and search members within your visible organization scope.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Messages" icon="message" href="/commands/messages">
+    Read chat history, download media files, and send text messages.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Meetings" icon="video" href="/commands/meetings">
+    Create, cancel, and manage scheduled video meetings.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Schedules" icon="calendar" href="/commands/schedules">
+    Full CRUD for calendar events plus availability queries.
   </Card>
-</Columns>
+  <Card title="Todos" icon="circle-check" href="/commands/todos">
+    Create, update, and track work items and their completion status.
+  </Card>
+  <Card title="Documents" icon="file-lines" href="/commands/docs">
+    Create and edit docs and smart spreadsheets (智能表格).
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Get started
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Steps>
+  <Step title="Install wecom-cli">
+    Install the CLI globally via npm — it automatically downloads the correct binary for your platform.
+
+    ```bash
+    npm install -g @wecom/cli
+    ```
+  </Step>
+  <Step title="Install the AI Skills (optional)">
+    If you plan to use wecom-cli with AI agents, install the bundled skills:
+
+    ```bash
+    npx skills add WeComTeam/wecom-cli -y -g
+    ```
+  </Step>
+  <Step title="Configure your credentials">
+    Run the interactive setup. You only need to do this once.
+
+    ```bash
+    wecom-cli init
+    ```
+
+    Choose QR code login (recommended) or enter your Bot ID and Secret manually.
+  </Step>
+  <Step title="Make your first call">
+    Fetch the members visible to your account:
+
+    ```bash
+    wecom-cli contact get_userlist '{}'
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  wecom-cli currently requires a WeCom account in an organization with **10 or fewer members**. Larger organizations are not yet supported.
+</Note>

@@ -1,0 +1,299 @@
+---
+title: "meeting"
+description: "Create and manage WeCom video meetings — schedule, cancel, update attendees, and query meeting details."
+---
+
+The `meeting` category lets you create scheduled WeCom video meetings, look up meeting lists and details, cancel meetings, and update the invitee list.
+
+```bash
+wecom-cli meeting <method> [json_args]
+```
+
+To list all available methods:
+
+```bash
+wecom-cli meeting --help
+```
+
+---
+
+## Methods
+
+<CardGroup cols={2}>
+  <Card title="create_meeting" icon="video">
+    Create a new scheduled meeting with title, time, and optional invitees.
+  </Card>
+  <Card title="list_user_meetings" icon="list">
+    Query meeting IDs for a time range (current day ± 30 days).
+  </Card>
+  <Card title="get_meeting_info" icon="circle-info">
+    Fetch full details for a meeting by ID.
+  </Card>
+  <Card title="cancel_meeting" icon="circle-xmark">
+    Cancel a scheduled meeting.
+  </Card>
+  <Card title="set_invite_meeting_members" icon="user-plus">
+    Replace the invitee list for a meeting (full overwrite).
+  </Card>
+</CardGroup>
+
+---
+
+## create\_meeting
+
+Creates a new scheduled meeting.
+
+```bash
+wecom-cli meeting create_meeting '{"title": "周例会", "meeting_start_datetime": "2026-03-18 15:00", "meeting_duration": 3600}'
+```
+
+With invitees, description, and location:
+
+```bash
+wecom-cli meeting create_meeting '{"title": "技术方案评审", "meeting_start_datetime": "2026-03-18 15:00", "meeting_duration": 3600, "location": "3楼会议室", "invitees": {"userid": ["zhangsan", "lisi"]}}'
+```
+
+### Parameters
+
+<ParamField body="title" type="string" required>
+  Meeting title.
+</ParamField>
+
+<ParamField body="meeting_start_datetime" type="string" required>
+  Meeting start time. Format: `YYYY-MM-DD HH:mm`.
+</ParamField>
+
+<ParamField body="meeting_duration" type="integer" required>
+  Duration in seconds. For example, `3600` = 1 hour, `5400` = 90 minutes.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional meeting description.
+</ParamField>
+
+<ParamField body="location" type="string">
+  Optional meeting location.
+</ParamField>
+
+<ParamField body="invitees" type="object">
+  Optional invitees object. Obtain `userid` values from [`contact get_userlist`](/commands/contact).
+
+  ```json
+  {"userid": ["zhangsan", "lisi"]}
+  ```
+</ParamField>
+
+<ParamField body="settings" type="object">
+  Optional meeting settings.
+
+  <Expandable title="settings properties">
+    <ParamField body="password" type="string">
+      Meeting password.
+    </ParamField>
+    <ParamField body="enable_waiting_room" type="boolean">
+      Enable the waiting room.
+    </ParamField>
+    <ParamField body="allow_enter_before_host" type="boolean">
+      Allow participants to join before the host.
+    </ParamField>
+    <ParamField body="enable_enter_mute" type="integer">
+      Mute on entry. `0` = off, `1` = on.
+    </ParamField>
+    <ParamField body="allow_external_user" type="boolean">
+      Allow external users to join.
+    </ParamField>
+    <ParamField body="enable_screen_watermark" type="boolean">
+      Enable screen watermark.
+    </ParamField>
+    <ParamField body="remind_scope" type="integer">
+      Reminder scope. `1` = no reminder, `2` = host only, `3` = all members, `4` = specific users.
+    </ParamField>
+    <ParamField body="ring_users" type="object">
+      Users to ring. Format: `{"userid": ["lisi"]}`. Requires `remind_scope: 4`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "meetingid": "MEETING_ID",
+    "meeting_code": "123456789",
+    "meeting_link": "https://meeting.tencent.com/dm/xxxxxxxx",
+    "excess_users": []
+}
+```
+
+<ResponseField name="meetingid" type="string">
+  Unique meeting identifier. Save this value — you need it to cancel the meeting or update its members.
+</ResponseField>
+
+<ResponseField name="meeting_code" type="string">
+  Numeric meeting code that participants can use to join. Display this prominently when sharing meeting details.
+</ResponseField>
+
+<ResponseField name="meeting_link" type="string">
+  Direct join link for the meeting.
+</ResponseField>
+
+<ResponseField name="excess_users" type="array">
+  `userid` values of any invitees who do not have a valid WeCom Meetings account. Only returned when some invitees cannot be added.
+</ResponseField>
+
+---
+
+## list\_user\_meetings
+
+Returns a list of meeting IDs for the authenticated user within a time range.
+
+```bash
+wecom-cli meeting list_user_meetings '{"begin_datetime": "2026-03-01 00:00", "end_datetime": "2026-03-31 23:59", "limit": 100}'
+```
+
+### Parameters
+
+<ParamField body="begin_datetime" type="string">
+  Range start. Format: `YYYY-MM-DD HH:mm`. Defaults to the start of the current day.
+</ParamField>
+
+<ParamField body="end_datetime" type="string">
+  Range end. Format: `YYYY-MM-DD HH:mm`. Defaults to the end of the current day.
+</ParamField>
+
+<ParamField body="limit" type="integer">
+  Maximum number of results to return. Maximum `100`.
+</ParamField>
+
+<ParamField body="cursor" type="string">
+  Pagination cursor from a previous response. Omit on the first call.
+</ParamField>
+
+<Warning>
+  The time range is limited to the **current day ± 30 days**. Queries outside this window are not supported.
+</Warning>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "meetingid_list": ["MEETING_ID_1", "MEETING_ID_2"],
+    "next_cursor": ""
+}
+```
+
+<ResponseField name="meetingid_list" type="array">
+  List of meeting IDs. Use each ID with `get_meeting_info` to fetch full details.
+</ResponseField>
+
+<ResponseField name="next_cursor" type="string">
+  Pagination cursor. Pass this as `cursor` on the next call if not empty.
+</ResponseField>
+
+---
+
+## get\_meeting\_info
+
+Fetches complete details for a single meeting.
+
+```bash
+wecom-cli meeting get_meeting_info '{"meetingid": "MEETING_ID"}'
+```
+
+### Parameters
+
+<ParamField body="meetingid" type="string" required>
+  Meeting ID. Obtain from `list_user_meetings`.
+</ParamField>
+
+<ParamField body="meeting_code" type="string">
+  Optional meeting code — an alternative way to look up the meeting.
+</ParamField>
+
+### Response (key fields)
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `title` | string | Meeting title |
+| `meeting_start_datetime` | string | Start time |
+| `meeting_duration` | integer | Duration in seconds |
+| `status` | integer | `1` = pending, `2` = in progress, `3` = ended, `4` = cancelled, `5` = expired |
+| `meeting_type` | integer | `0` = one-time, `1` = recurring, `2` = WeChat-exclusive, `5` = personal room, `6` = webinar |
+| `meeting_code` | string | Numeric meeting code |
+| `meeting_link` | string | Join link |
+| `description` | string | Meeting description |
+| `location` | string | Meeting location |
+
+---
+
+## cancel\_meeting
+
+Cancels a scheduled meeting.
+
+```bash
+wecom-cli meeting cancel_meeting '{"meetingid": "MEETING_ID"}'
+```
+
+### Parameters
+
+<ParamField body="meetingid" type="string" required>
+  Meeting ID. Use `list_user_meetings` and `get_meeting_info` to locate the correct ID.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+---
+
+## set\_invite\_meeting\_members
+
+Replaces the entire invitee list for a meeting. This is a **full overwrite** — you must include all desired members, not just the new ones.
+
+```bash
+wecom-cli meeting set_invite_meeting_members '{"meetingid": "MEETING_ID", "invitees": [{"userid": "zhangsan"}, {"userid": "lisi"}, {"userid": "wangwu"}]}'
+```
+
+### Parameters
+
+<ParamField body="meetingid" type="string" required>
+  Meeting ID. Use `list_user_meetings` and `get_meeting_info` to locate the correct ID.
+</ParamField>
+
+<ParamField body="invitees" type="array" required>
+  New complete invitee list. Each item must contain a `userid` field. Obtain `userid` values from [`contact get_userlist`](/commands/contact).
+
+  ```json
+  [{"userid": "zhangsan"}, {"userid": "lisi"}]
+  ```
+</ParamField>
+
+<Warning>
+  `set_invite_meeting_members` **replaces** the existing invitee list entirely. To add a single person, first retrieve the current attendees with `get_meeting_info`, then include all existing members plus the new one in your request.
+</Warning>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+---
+
+## Notes
+
+- `invitees` and `ring_users` `userid` values must come from [`contact get_userlist`](/commands/contact) — only internal organization members are supported.
+- Meeting list queries are limited to the current day ± 30 days.
+- To find a meeting by title, use `list_user_meetings` to get IDs, then call `get_meeting_info` for each one and match on `title`.

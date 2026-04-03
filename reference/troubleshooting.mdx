@@ -1,0 +1,116 @@
+---
+title: "Troubleshooting"
+description: "Solutions to common problems with wecom-cli installation, authentication, and API calls."
+---
+
+<Tip>
+  To see detailed logs for any command, prefix it with `WECOM_CLI_LOG_LEVEL=debug`:
+
+  ```bash
+  WECOM_CLI_LOG_LEVEL=debug wecom-cli <category> <method> [json_args]
+  ```
+
+  This writes human-readable trace output to stderr and is usually the fastest way to identify what went wrong.
+</Tip>
+
+<AccordionGroup>
+  <Accordion title="Command not found: wecom-cli">
+    The binary is not on your `PATH`. Try the following:
+
+    **Reinstall the npm package:**
+
+    ```bash
+    npm install -g @wecom/cli
+    ```
+
+    **Verify the global bin directory is on your PATH:**
+
+    ```bash
+    npm bin -g
+    ```
+
+    Add the printed path to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) if it is missing, then restart your shell.
+
+    ```bash
+    export PATH="$(npm bin -g):$PATH"
+    ```
+  </Accordion>
+
+  <Accordion title="Credentials not found">
+    wecom-cli could not find `bot.enc` in the config directory. This means `wecom-cli init` has not been run yet, or the config directory has been moved or deleted.
+
+    Run the setup wizard to create your credentials:
+
+    ```bash
+    wecom-cli init
+    ```
+
+    If you store credentials in a non-default location, make sure `WECOM_CLI_CONFIG_DIR` is set to the correct directory before running any command.
+  </Accordion>
+
+  <Accordion title="API call fails with an auth error">
+    Your stored credentials may be stale or have been revoked. Re-run `init` to replace them:
+
+    ```bash
+    wecom-cli init
+    ```
+
+    This overwrites `bot.enc` and `mcp_config.enc` with fresh credentials. No other files are affected.
+  </Accordion>
+
+  <Accordion title="Unsupported platform">
+    wecom-cli ships pre-compiled binaries for the following platforms:
+
+    | Platform | Architecture |
+    | -------- | ------------ |
+    | macOS    | x64, arm64   |
+    | Linux    | x64, arm64   |
+    | Windows  | x64          |
+
+    If your platform is not listed, a binary is not available yet. Open an issue on [GitHub](https://github.com/WecomTeam/wecom-cli/issues) to request support for your platform.
+  </Accordion>
+
+  <Accordion title="get_msg_media times out">
+    `get_msg_media` has an extended timeout of **120 seconds** (all other commands time out after 30 seconds). If it still times out, the most likely cause is a slow or interrupted network connection to the WeCom media servers.
+
+    Things to check:
+
+    - Confirm your network can reach WeCom API endpoints.
+    - Try the command again — transient network errors are common with large media files.
+    - Enable debug logging to see request progress:
+
+    ```bash
+    WECOM_CLI_LOG_LEVEL=debug wecom-cli msg get_msg_media '{"media_id": "MEDIAID_xxxxxx"}'
+    ```
+  </Accordion>
+
+  <Accordion title="userlist returns an error for large organizations">
+    `contact get_userlist` is only supported for organizations with **10 or fewer members**. This is a WeCom API restriction — the endpoint is not available for larger organizations.
+
+    If your organization has more than 10 members, the API will return an error. There is no workaround at this time. Support for larger organizations is not yet available.
+  </Accordion>
+
+  <Accordion title="Cannot find @wecom/cli binary">
+    This error occurs when npm's optional dependencies are disabled. The platform-specific binary packages (`@wecom/cli-linux-x64`, `@wecom/cli-darwin-arm64`, etc.) are declared as optional dependencies and are skipped when optional installs are turned off.
+
+    **Check your npm configuration:**
+
+    ```bash
+    npm config get omit
+    ```
+
+    If the output includes `optional`, remove it:
+
+    ```bash
+    npm config delete omit
+    ```
+
+    Then reinstall:
+
+    ```bash
+    npm install -g @wecom/cli
+    ```
+
+    If you are using a `.npmrc` file (in your project or home directory), check that it does not contain `omit=optional` or `optional=false`.
+  </Accordion>
+</AccordionGroup>

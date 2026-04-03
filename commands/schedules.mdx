@@ -1,0 +1,417 @@
+---
+title: "schedule"
+description: "Full CRUD for WeCom calendar events, plus attendee management and availability queries."
+---
+
+The `schedule` category provides complete management of WeCom calendar events: create, read, update, and cancel schedules; add or remove individual attendees; and query multi-user availability to find a common free slot.
+
+```bash
+wecom-cli schedule <method> [json_args]
+```
+
+To list all available methods:
+
+```bash
+wecom-cli schedule --help
+```
+
+---
+
+## Methods
+
+<CardGroup cols={2}>
+  <Card title="get_schedule_list_by_range" icon="calendar-days">
+    Get schedule IDs within a time range.
+  </Card>
+  <Card title="get_schedule_detail" icon="circle-info">
+    Fetch full details for one or more schedules by ID.
+  </Card>
+  <Card title="create_schedule" icon="calendar-plus">
+    Create a new calendar event.
+  </Card>
+  <Card title="update_schedule" icon="pen-to-square">
+    Modify fields of an existing event.
+  </Card>
+  <Card title="cancel_schedule" icon="calendar-xmark">
+    Cancel an event by ID.
+  </Card>
+  <Card title="add_schedule_attendees" icon="user-plus">
+    Add attendees to an existing event.
+  </Card>
+  <Card title="del_schedule_attendees" icon="user-minus">
+    Remove attendees from an existing event.
+  </Card>
+  <Card title="check_availability" icon="clock">
+    Query busy/free periods for up to 10 users.
+  </Card>
+</CardGroup>
+
+---
+
+## Time format
+
+All time parameters use `YYYY-MM-DD HH:mm:ss` format when passed as input. Returned `start_time` and `end_time` values are Unix timestamps (seconds) — convert them to human-readable format as needed.
+
+<Note>
+  Schedule queries are limited to the **current day ± 30 days**.
+</Note>
+
+---
+
+## get\_schedule\_list\_by\_range
+
+Returns schedule IDs for all events that fall within the given time range.
+
+```bash
+wecom-cli schedule get_schedule_list_by_range '{"start_time": "2026-03-17 00:00:00", "end_time": "2026-03-17 23:59:59"}'
+```
+
+### Parameters
+
+<ParamField body="start_time" type="string" required>
+  Range start. Format: `YYYY-MM-DD HH:mm:ss`. Within current day ± 30 days.
+</ParamField>
+
+<ParamField body="end_time" type="string" required>
+  Range end. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "schedule_id_list": ["SCHEDULE_ID_1", "SCHEDULE_ID_2"]
+}
+```
+
+<ResponseField name="schedule_id_list" type="array">
+  List of schedule IDs. Pass these to `get_schedule_detail` to fetch full event information.
+</ResponseField>
+
+---
+
+## get\_schedule\_detail
+
+Fetches complete details for one or more schedules. Supports up to 50 IDs per call.
+
+```bash
+wecom-cli schedule get_schedule_detail '{"schedule_id_list": ["SCHEDULE_ID_1", "SCHEDULE_ID_2"]}'
+```
+
+### Parameters
+
+<ParamField body="schedule_id_list" type="array" required>
+  List of schedule IDs to look up. Maximum 50 per call.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "schedule_list": [
+        {
+            "schedule_id": "SCHEDULE_ID_1",
+            "organizer": "zhangsan",
+            "summary": "需求评审",
+            "description": "Q2 产品需求评审",
+            "location": "3楼会议室",
+            "start_time": 1742176800,
+            "end_time": 1742180400,
+            "attendees": [
+                {"userid": "zhangsan"},
+                {"userid": "lisi"}
+            ],
+            "reminders": {
+                "is_remind": 1,
+                "remind_before_event_secs": 900
+            }
+        }
+    ]
+}
+```
+
+<Note>
+  `start_time` and `end_time` in the response are Unix timestamps (seconds). Convert them to a human-readable format before displaying.
+</Note>
+
+---
+
+## create\_schedule
+
+Creates a new calendar event.
+
+```bash
+wecom-cli schedule create_schedule '{"schedule": {"start_time": "2026-03-18 14:00:00", "end_time": "2026-03-18 15:00:00", "summary": "需求评审", "attendees": [{"userid": "zhangsan"}, {"userid": "lisi"}], "reminders": {"is_remind": 1, "remind_before_event_secs": 900, "timezone": 8}}}'
+```
+
+### Parameters
+
+<ParamField body="schedule" type="object" required>
+  Schedule object.
+
+  <Expandable title="schedule properties">
+    <ParamField body="start_time" type="string" required>
+      Event start time. Format: `YYYY-MM-DD HH:mm:ss`.
+    </ParamField>
+    <ParamField body="end_time" type="string" required>
+      Event end time. Format: `YYYY-MM-DD HH:mm:ss`.
+    </ParamField>
+    <ParamField body="summary" type="string" required>
+      Event title.
+    </ParamField>
+    <ParamField body="description" type="string">
+      Optional event description.
+    </ParamField>
+    <ParamField body="location" type="string">
+      Optional event location.
+    </ParamField>
+    <ParamField body="attendees" type="array">
+      List of attendee objects. Each item must include a `userid` field. Obtain `userid` values from [`contact get_userlist`](/commands/contact).
+
+      ```json
+      [{"userid": "zhangsan"}, {"userid": "lisi"}]
+      ```
+    </ParamField>
+    <ParamField body="is_whole_day" type="integer">
+      Set to `1` for an all-day event. When set, use `00:00:00` to `23:59:59` for the times.
+    </ParamField>
+    <ParamField body="reminders" type="object">
+      Reminder settings.
+
+      <Expandable title="reminders properties">
+        <ParamField body="is_remind" type="integer">
+          `1` to enable reminders, `0` to disable.
+        </ParamField>
+        <ParamField body="remind_before_event_secs" type="integer">
+          How many seconds before the event to send a reminder. For example, `900` = 15 minutes, `3600` = 1 hour.
+        </ParamField>
+        <ParamField body="timezone" type="integer">
+          Timezone offset from UTC. For example, `8` for China Standard Time (UTC+8).
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "schedule_id": "SCHEDULE_ID"
+}
+```
+
+<ResponseField name="schedule_id" type="string">
+  Unique identifier of the newly created event. Save this value for subsequent updates or cancellations.
+</ResponseField>
+
+---
+
+## update\_schedule
+
+Modifies fields of an existing event. Only the fields you pass are changed — unspecified fields remain as-is.
+
+```bash
+wecom-cli schedule update_schedule '{"schedule": {"schedule_id": "SCHEDULE_ID", "summary": "技术方案评审"}}'
+```
+
+Change the start/end time:
+
+```bash
+wecom-cli schedule update_schedule '{"schedule": {"schedule_id": "SCHEDULE_ID", "start_time": "2026-03-19 15:00:00", "end_time": "2026-03-19 16:00:00"}}'
+```
+
+### Parameters
+
+<ParamField body="schedule" type="object" required>
+  Object containing `schedule_id` and any fields to update. Accepts the same fields as `create_schedule`.
+
+  <Expandable title="schedule properties">
+    <ParamField body="schedule_id" type="string" required>
+      ID of the event to update. Obtain from `get_schedule_list_by_range`.
+    </ParamField>
+    <ParamField body="summary" type="string">
+      New event title.
+    </ParamField>
+    <ParamField body="description" type="string">
+      New description.
+    </ParamField>
+    <ParamField body="location" type="string">
+      New location.
+    </ParamField>
+    <ParamField body="start_time" type="string">
+      New start time. Format: `YYYY-MM-DD HH:mm:ss`.
+    </ParamField>
+    <ParamField body="end_time" type="string">
+      New end time. Format: `YYYY-MM-DD HH:mm:ss`.
+    </ParamField>
+    <ParamField body="reminders" type="object">
+      New reminder settings. See `create_schedule` for the reminders object structure.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+---
+
+## cancel\_schedule
+
+Cancels an event. This action cannot be undone.
+
+```bash
+wecom-cli schedule cancel_schedule '{"schedule_id": "SCHEDULE_ID"}'
+```
+
+### Parameters
+
+<ParamField body="schedule_id" type="string" required>
+  ID of the event to cancel. Obtain from `get_schedule_list_by_range`.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+---
+
+## add\_schedule\_attendees
+
+Adds one or more attendees to an existing event.
+
+```bash
+wecom-cli schedule add_schedule_attendees '{"schedule_id": "SCHEDULE_ID", "attendees": [{"userid": "wangwu"}]}'
+```
+
+### Parameters
+
+<ParamField body="schedule_id" type="string" required>
+  Target event ID.
+</ParamField>
+
+<ParamField body="attendees" type="array" required>
+  List of attendees to add. Each item must include a `userid` field.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+---
+
+## del\_schedule\_attendees
+
+Removes one or more attendees from an existing event.
+
+```bash
+wecom-cli schedule del_schedule_attendees '{"schedule_id": "SCHEDULE_ID", "attendees": [{"userid": "wangwu"}]}'
+```
+
+### Parameters
+
+<ParamField body="schedule_id" type="string" required>
+  Target event ID.
+</ParamField>
+
+<ParamField body="attendees" type="array" required>
+  List of attendees to remove. Each item must include a `userid` field.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+---
+
+## check\_availability
+
+Queries the busy/free periods for up to 10 users within a given time range. Use this to find a common free slot before creating an event.
+
+```bash
+wecom-cli schedule check_availability '{"check_user_list": ["zhangsan", "lisi"], "start_time": "2026-03-18 09:00:00", "end_time": "2026-03-18 18:00:00"}'
+```
+
+### Parameters
+
+<ParamField body="check_user_list" type="array" required>
+  List of `userid` values to check. Maximum 10 users. Obtain `userid` values from [`contact get_userlist`](/commands/contact).
+</ParamField>
+
+<ParamField body="start_time" type="string" required>
+  Start of the query range. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+<ParamField body="end_time" type="string" required>
+  End of the query range. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "user_availability_list": [
+        {
+            "userid": "zhangsan",
+            "busy_list": [
+                {
+                    "start_time": 1742180400,
+                    "end_time": 1742184000
+                }
+            ]
+        }
+    ]
+}
+```
+
+<ResponseField name="user_availability_list" type="array">
+  Availability data per user.
+
+  <Expandable title="user_availability_list item properties">
+    <ResponseField name="userid" type="string">
+      The user whose availability is described.
+    </ResponseField>
+    <ResponseField name="busy_list" type="array">
+      List of busy periods. Each item has `start_time` and `end_time` as Unix timestamps. Times not covered by `busy_list` are free.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Notes
+
+- All attendee `userid` values must be obtained from [`contact get_userlist`](/commands/contact).
+- Schedule queries are limited to the current day ± 30 days.
+- `start_time` and `end_time` in responses are Unix timestamps; convert them before displaying.
+- `add_schedule_attendees` and `del_schedule_attendees` modify attendees incrementally — they do not replace the full list.
+- Cancellation is irreversible. Confirm the target event before calling `cancel_schedule`.

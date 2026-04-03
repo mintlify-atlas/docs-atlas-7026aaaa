@@ -1,0 +1,71 @@
+---
+title: "AI Agent Skills overview"
+description: "Loadable skill files that give AI tools the ability to operate WeCom through wecom-cli commands."
+---
+
+Agent Skills are machine-readable instruction files that teach AI tools — Claude, Cursor, Windsurf, and others — how to use wecom-cli. When you load a skill, the AI reads its workflow definitions, then issues `wecom-cli <category> <method> '<json>'` shell commands to interact with WeCom on your behalf.
+
+## Install all skills
+
+Run this command once in any directory. The `-g` flag installs skills globally so they are available to your AI tool across projects.
+
+```bash
+npx skills add WeComTeam/wecom-cli -y -g
+```
+
+## Available skills
+
+| Skill | Category | Description |
+|-------|----------|-------------|
+| `wecomcli-contact` | `contact` | Query members visible to your account. Supports name and alias search. Returns `userid`, name, and alias. |
+| `wecomcli-msg` | `msg` | List conversations, retrieve message history, download media files, and send text messages. |
+| `wecomcli-meeting` | `meeting` | Create scheduled meetings, cancel them, update attendees, and query meeting lists and details. |
+| `wecomcli-schedule` | `schedule` | Query, create, modify, and cancel calendar events. Manage attendees. Query multi-user availability. |
+| `wecomcli-todo` | `todo` | Query, create, update, and delete work items. Change per-user completion status. |
+| `wecomcli-doc` | `doc` | Create and edit documents, manage smart spreadsheets (智能表格), sub-sheets, fields, and records. |
+
+## How skills work
+
+Each skill is a `SKILL.md` file that the AI loads into its context. The file describes:
+
+- Which operations are available and what JSON parameters each one accepts
+- Decision rules (for example, how to resolve a person's name to their `userid`)
+- Mandatory workflow steps the AI must follow in order
+- How to handle errors and pagination
+
+Once the AI has read the skill, it executes operations by running shell commands:
+
+```bash
+wecom-cli <category> <method> '<json_params>'
+```
+
+For example, to send a message the AI would run:
+
+```bash
+wecom-cli msg send_message '{"chat_type": 1, "chatid": "zhangsan", "msgtype": "text", "text": {"content": "See you tomorrow"}}'
+```
+
+Skills also coordinate with each other. Several skills call `wecomcli-contact` to translate a `userid` (an internal identifier) into a human-readable name before presenting results to you.
+
+## Skill pages
+
+<CardGroup cols={2}>
+  <Card title="Contact skill" icon="address-book" href="/agent-skills/contact-skill">
+    Query and search your visible contacts by name or alias.
+  </Card>
+  <Card title="Messages skill" icon="message" href="/agent-skills/msg-skill">
+    Read conversations, download media, and send text messages.
+  </Card>
+  <Card title="Meeting skill" icon="video" href="/agent-skills/meeting-skill">
+    Create, cancel, and manage meeting attendees.
+  </Card>
+  <Card title="Schedule skill" icon="calendar" href="/agent-skills/schedule-skill">
+    Manage calendar events and check availability.
+  </Card>
+  <Card title="Todo skill" icon="circle-check" href="/agent-skills/todo-skill">
+    Create, update, and track work items.
+  </Card>
+  <Card title="Document skill" icon="file-lines" href="/agent-skills/doc-skill">
+    Create and edit docs and smart spreadsheets.
+  </Card>
+</CardGroup>

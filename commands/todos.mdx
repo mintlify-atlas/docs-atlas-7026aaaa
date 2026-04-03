@@ -1,0 +1,416 @@
+---
+title: "todo"
+description: "Create and manage WeCom work items — list, view, create, update, delete, and change completion status."
+---
+
+The `todo` category provides full lifecycle management for WeCom work items: retrieve todo lists and details, create new items with optional assignees and reminders, update existing items, delete them, and change per-user status (accept, complete, or decline).
+
+```bash
+wecom-cli todo <method> [json_args]
+```
+
+To list all available methods:
+
+```bash
+wecom-cli todo --help
+```
+
+---
+
+## Methods
+
+<CardGroup cols={2}>
+  <Card title="get_todo_list" icon="list-check">
+    Query todos with optional time filters. Returns summary info — follow up with `get_todo_detail`.
+  </Card>
+  <Card title="get_todo_detail" icon="circle-info">
+    Fetch full details (content, assignees) for up to 20 todo IDs.
+  </Card>
+  <Card title="create_todo" icon="plus">
+    Create a new todo item with content, optional assignees, and optional reminder.
+  </Card>
+  <Card title="update_todo" icon="pen-to-square">
+    Update content, assignees, status, or reminder time for an existing todo.
+  </Card>
+  <Card title="delete_todo" icon="trash">
+    Permanently delete a todo item.
+  </Card>
+  <Card title="change_todo_user_status" icon="arrow-right-arrow-left">
+    Change the current user's status on a todo (accept, complete, or decline).
+  </Card>
+</CardGroup>
+
+---
+
+## Status values
+
+| Status field | Value | Meaning |
+| ------------ | ----- | ------- |
+| `todo_status` | `0` | Completed |
+| `todo_status` | `1` | In progress |
+| `todo_status` | `2` | Deleted |
+| `user_status` / `follower_status` | `0` | Declined |
+| `user_status` / `follower_status` | `1` | Accepted |
+| `user_status` / `follower_status` | `2` | Completed |
+
+---
+
+## get\_todo\_list
+
+Queries the current user's todo list, with optional time filters and pagination. Returns summary information only — it does not include todo content or assignees. Always follow up with `get_todo_detail` to get the full item.
+
+```bash
+wecom-cli todo get_todo_list '{}'
+```
+
+Filter by creation time:
+
+```bash
+wecom-cli todo get_todo_list '{"create_begin_time": "2026-01-01 00:00:00", "create_end_time": "2026-03-31 23:59:59"}'
+```
+
+### Parameters
+
+<ParamField body="create_begin_time" type="string">
+  Filter: created on or after this time. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+<ParamField body="create_end_time" type="string">
+  Filter: created on or before this time. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+<ParamField body="remind_begin_time" type="string">
+  Filter: reminder set on or after this time. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+<ParamField body="remind_end_time" type="string">
+  Filter: reminder set on or before this time. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+<ParamField body="limit" type="number">
+  Maximum number of results per page. Default `10`, maximum `20`.
+</ParamField>
+
+<ParamField body="cursor" type="string">
+  Pagination cursor from a previous response. Omit on the first call.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "index_list": [
+        {
+            "todo_id": "TODO_ID",
+            "todo_status": 1,
+            "user_status": 1,
+            "creator_id": "CREATOR_ID",
+            "remind_time": "2025-06-01 09:00:00",
+            "create_time": "2025-01-15 10:30:00",
+            "update_time": "2025-01-16 14:20:00"
+        }
+    ],
+    "next_cursor": "NEXT_CURSOR",
+    "has_more": false
+}
+```
+
+<ResponseField name="index_list" type="array">
+  Summary records. Does not include todo content or assignees.
+
+  <Expandable title="index_list item properties">
+    <ResponseField name="todo_id" type="string">
+      Unique todo identifier. Pass this to `get_todo_detail`.
+    </ResponseField>
+    <ResponseField name="todo_status" type="integer">
+      Overall todo status. See [status values](#status-values).
+    </ResponseField>
+    <ResponseField name="user_status" type="integer">
+      Current user's status on this todo. See [status values](#status-values).
+    </ResponseField>
+    <ResponseField name="creator_id" type="string">
+      `userid` of the creator.
+    </ResponseField>
+    <ResponseField name="remind_time" type="string">
+      Scheduled reminder time.
+    </ResponseField>
+    <ResponseField name="create_time" type="string">
+      When the todo was created.
+    </ResponseField>
+    <ResponseField name="update_time" type="string">
+      When the todo was last updated.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="next_cursor" type="string">
+  Pagination cursor. Pass this as `cursor` on the next call if `has_more` is `true`.
+</ResponseField>
+
+<ResponseField name="has_more" type="boolean">
+  `true` if more todos exist beyond this page.
+</ResponseField>
+
+<Note>
+  `get_todo_list` returns summary information only. You must call `get_todo_detail` with the returned `todo_id` values to see content and assignees.
+</Note>
+
+---
+
+## get\_todo\_detail
+
+Fetches full details — including content and assignees — for up to 20 todo IDs in a single call.
+
+```bash
+wecom-cli todo get_todo_detail '{"todo_id_list": ["TODO_ID_1", "TODO_ID_2"]}'
+```
+
+### Parameters
+
+<ParamField body="todo_id_list" type="array" required>
+  List of todo IDs to look up. Maximum 20 per call. Obtain IDs from `get_todo_list`.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "data_list": [
+        {
+            "todo_id": "TODO_ID",
+            "todo_status": 1,
+            "content": "完成Q2规划文档",
+            "follower_list": {
+                "followers": [
+                    {
+                        "follower_id": "FOLLOWER_ID",
+                        "follower_status": 1,
+                        "update_time": "2025-01-16 14:20:00"
+                    }
+                ]
+            },
+            "creator_id": "CREATOR_ID",
+            "user_status": 1,
+            "remind_time": "2025-06-01 09:00:00",
+            "create_time": "2025-01-15 10:30:00",
+            "update_time": "2025-01-16 14:20:00"
+        }
+    ]
+}
+```
+
+<ResponseField name="data_list" type="array">
+  Full todo records.
+
+  <Expandable title="data_list item properties">
+    <ResponseField name="todo_id" type="string">
+      Unique todo identifier.
+    </ResponseField>
+    <ResponseField name="todo_status" type="integer">
+      Overall todo status. See [status values](#status-values).
+    </ResponseField>
+    <ResponseField name="content" type="string">
+      Todo text content.
+    </ResponseField>
+    <ResponseField name="follower_list" type="object">
+      Assignee (follower) information.
+
+      <Expandable title="follower_list properties">
+        <ResponseField name="followers" type="array">
+          List of assignees.
+
+          <Expandable title="follower item properties">
+            <ResponseField name="follower_id" type="string">
+              Assignee `userid`. Look this up in [`contact get_userlist`](/commands/contact) to resolve to a name.
+            </ResponseField>
+            <ResponseField name="follower_status" type="integer">
+              Assignee's status. See [status values](#status-values).
+            </ResponseField>
+            <ResponseField name="update_time" type="string">
+              When the assignee's status was last updated.
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="creator_id" type="string">
+      `userid` of the creator. Look this up in [`contact get_userlist`](/commands/contact) to resolve to a name.
+    </ResponseField>
+    <ResponseField name="remind_time" type="string">
+      Scheduled reminder time.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## create\_todo
+
+Creates a new todo item.
+
+```bash
+wecom-cli todo create_todo '{"content": "完成Q2规划文档", "remind_time": "2025-06-01 09:00:00"}'
+```
+
+Create a todo and assign it to another user:
+
+```bash
+wecom-cli todo create_todo '{"content": "完成需求文档", "follower_list": {"followers": [{"follower_id": "zhangsan", "follower_status": 1}]}, "remind_time": "2025-06-01 09:00:00"}'
+```
+
+### Parameters
+
+<ParamField body="content" type="string" required>
+  Todo text content.
+</ParamField>
+
+<ParamField body="remind_time" type="string">
+  Optional reminder time. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+<ParamField body="follower_list" type="object">
+  Optional assignees. Each `follower_id` is a `userid` obtained from [`contact get_userlist`](/commands/contact).
+
+  ```json
+  {
+    "followers": [
+      {"follower_id": "zhangsan", "follower_status": 1}
+    ]
+  }
+  ```
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok",
+    "todo_id": "TODO_ID"
+}
+```
+
+<ResponseField name="todo_id" type="string">
+  Unique identifier of the newly created todo. Save this for subsequent updates or deletions.
+</ResponseField>
+
+---
+
+## update\_todo
+
+Updates fields of an existing todo item. Only the fields you pass are changed.
+
+```bash
+wecom-cli todo update_todo '{"todo_id": "TODO_ID", "content": "更新后的任务内容", "remind_time": "2025-07-01 09:00:00"}'
+```
+
+### Parameters
+
+<ParamField body="todo_id" type="string" required>
+  ID of the todo to update. Obtain from `get_todo_list`.
+</ParamField>
+
+<ParamField body="content" type="string">
+  New todo content.
+</ParamField>
+
+<ParamField body="remind_time" type="string">
+  New reminder time. Format: `YYYY-MM-DD HH:mm:ss`.
+</ParamField>
+
+<ParamField body="follower_list" type="object">
+  New complete assignee list. This is a **full replacement** — include all desired assignees. To add a new assignee, first retrieve existing ones with `get_todo_detail` and merge them.
+
+  ```json
+  {
+    "followers": [
+      {"follower_id": "zhangsan", "follower_status": 1}
+    ]
+  }
+  ```
+</ParamField>
+
+<ParamField body="todo_status" type="number">
+  New todo status. `0` = completed, `1` = in progress. Use `delete_todo` to delete instead of setting `2`.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+---
+
+## delete\_todo
+
+Permanently deletes a todo item. This action cannot be undone.
+
+```bash
+wecom-cli todo delete_todo '{"todo_id": "TODO_ID"}'
+```
+
+### Parameters
+
+<ParamField body="todo_id" type="string" required>
+  ID of the todo to delete. Obtain from `get_todo_list`.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+<Warning>
+  Deletion is permanent and cannot be undone. Confirm the target todo before calling this method.
+</Warning>
+
+---
+
+## change\_todo\_user\_status
+
+Changes the current user's status on a specific todo (e.g., mark as completed, accept, or decline).
+
+```bash
+wecom-cli todo change_todo_user_status '{"todo_id": "TODO_ID", "user_status": 2}'
+```
+
+### Parameters
+
+<ParamField body="todo_id" type="string" required>
+  ID of the todo. Obtain from `get_todo_list`.
+</ParamField>
+
+<ParamField body="user_status" type="number" required>
+  New status for the current user. `0` = declined, `1` = accepted, `2` = completed.
+</ParamField>
+
+### Response
+
+```json
+{
+    "errcode": 0,
+    "errmsg": "ok"
+}
+```
+
+---
+
+## Notes
+
+- `todo_id` must always come from `get_todo_list` — do not construct or guess IDs.
+- `follower_id` values are `userid` identifiers — obtain them from [`contact get_userlist`](/commands/contact).
+- `follower_list` in `update_todo` is a full replacement. Retrieve existing assignees first if you want to add rather than replace.
+- `get_todo_list` is paginated with a default page size of 10 and a maximum of 20. If `has_more` is `true`, use `cursor` to fetch the next page.
+- If `errcode` is not `0`, the call failed. Check `errmsg` for the error description.

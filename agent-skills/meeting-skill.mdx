@@ -1,0 +1,206 @@
+---
+title: "Meeting skill"
+description: "Create, query, cancel, and manage attendees for WeCom scheduled meetings through wecom-cli."
+---
+
+The `wecomcli-meeting` skill gives the AI the ability to manage your WeCom video meetings. It can create scheduled meetings, query what meetings are coming up, retrieve full meeting details, cancel meetings, and update the invited attendee list.
+
+<Note>
+  Meeting list queries are limited to the current day plus or minus 30 days. The AI returns at most 100 meetings per page.
+</Note>
+
+## Available operations
+
+### create_meeting
+
+Creates a new scheduled meeting.
+
+```bash
+wecom-cli meeting create_meeting '{"title": "Weekly sync", "meeting_start_datetime": "2026-03-18 15:00", "meeting_duration": 3600}'
+```
+
+**Key parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `title` | string | Yes | Meeting title. |
+| `meeting_start_datetime` | string | Yes | Start time in `YYYY-MM-DD HH:mm` format. |
+| `meeting_duration` | integer | Yes | Duration in seconds. For example, `3600` = 1 hour. |
+| `description` | string | No | Meeting description. |
+| `location` | string | No | Meeting location. |
+| `invitees` | object | No | Invited members: `{"userid": ["lisi", "wangwu"]}`. Obtained via `wecomcli-contact`. |
+| `settings` | object | No | Advanced settings (password, waiting room, mute on entry, etc.). |
+
+**Response:**
+
+```json
+{
+  "errcode": 0,
+  "errmsg": "ok",
+  "meetingid": "meeting-id-string",
+  "meeting_code": "123456789",
+  "meeting_link": "https://meeting.tencent.com/...",
+  "excess_users": []
+}
+```
+
+The `meeting_code` is shown to you at the top of the reply in the format `#Meeting code: 123-456-789`.
+
+### list_user_meetings
+
+Returns the meeting ID list for your account within a time range.
+
+```bash
+wecom-cli meeting list_user_meetings '{"begin_datetime": "2026-03-01 00:00", "end_datetime": "2026-03-31 23:59", "limit": 100}'
+```
+
+Returns `meetingid_list` and a `next_cursor` for pagination. If `next_cursor` is non-empty, more results are available.
+
+<Warning>
+  Time range is limited to the current day ± 30 days. Queries outside this range will fail.
+</Warning>
+
+### get_meeting_info
+
+Retrieves full details for a meeting by its ID.
+
+```bash
+wecom-cli meeting get_meeting_info '{"meetingid": "<meeting-id>"}'
+```
+
+Key fields in the response:
+
+| Field | Description |
+|-------|-------------|
+| `title` | Meeting title. |
+| `meeting_start_datetime` | Start time. |
+| `meeting_duration` | Duration in seconds. |
+| `status` | `1` = upcoming, `2` = in progress, `3` = ended, `4` = cancelled, `5` = expired. |
+| `meeting_code` | Dial-in code. |
+| `meeting_link` | Join URL. |
+| `attendees.member[].status` | `1` = attended, `2` = did not attend. |
+
+### cancel_meeting
+
+Cancels a scheduled meeting.
+
+```bash
+wecom-cli meeting cancel_meeting '{"meetingid": "<meeting-id>"}'
+```
+
+### set_invite_meeting_members
+
+Replaces the invited attendee list for a meeting. This is a full overwrite — you must include existing members you want to keep.
+
+```bash
+wecom-cli meeting set_invite_meeting_members '{"meetingid": "<meeting-id>", "invitees": [{"userid": "lisi"}, {"userid": "wangwu"}]}'
+```
+
+<Warning>
+  `set_invite_meeting_members` replaces the entire attendee list. To add a single person, the AI first fetches the current attendees via `get_meeting_info`, merges the new person in, then submits the combined list.
+</Warning>
+
+## Typical workflows
+
+### Creating a meeting
+
+<Steps>
+  <Step title="Parse your request">
+    The AI extracts the title and start time. If you did not mention invitees, the meeting is created without them. No confirmation is requested unless information is missing.
+  </Step>
+  <Step title="Look up invitee userids (if needed)">
+    ```bash
+    wecom-cli contact get_userlist '{}'
+    ```
+    The AI filters the result locally to find the `userid` for each person you named.
+  </Step>
+  <Step title="Create the meeting">
+    ```bash
+    wecom-cli meeting create_meeting '{"title": "Tech review", "meeting_start_datetime": "2026-03-18 15:00", "meeting_duration": 3600, "location": "3F conference room", "invitees": {"userid": ["zhangsan", "lisi"]}}'
+    ```
+  </Step>
+  <Step title="Show the result">
+    The AI displays the meeting code, time, attendees, and join link.
+  </Step>
+</Steps>
+
+### Querying your meeting list
+
+<Steps>
+  <Step title="Calculate the time range">
+    For example, "this week" becomes the current Monday 00:00 through Sunday 23:59.
+  </Step>
+  <Step title="Fetch meeting IDs">
+    ```bash
+    wecom-cli meeting list_user_meetings '{"begin_datetime": "2026-03-16 00:00", "end_datetime": "2026-03-22 23:59", "limit": 100}'
+    ```
+  </Step>
+  <Step title="Fetch details for each meeting">
+    ```bash
+    wecom-cli meeting get_meeting_info '{"meetingid": "<meeting-id>"}'
+    ```
+    The AI calls this once per ID returned by `list_user_meetings`.
+  </Step>
+  <Step title="Display the list">
+    Results are shown grouped by date with title, time window, and attendees.
+  </Step>
+</Steps>
+
+### Finding a meeting by title
+
+<Steps>
+  <Step title="Query the ±30-day window">
+    ```bash
+    wecom-cli meeting list_user_meetings '{"begin_datetime": "2026-02-15 00:00", "end_datetime": "2026-04-16 23:59", "limit": 100}'
+    ```
+  </Step>
+  <Step title="Fetch details and match by title keyword">
+    The AI calls `get_meeting_info` for each ID and compares the title against your keyword. It stops as soon as a match is found.
+  </Step>
+  <Step title="Show the result or report no match">
+    If no meeting title matches within the ±30-day window, the AI tells you and suggests you double-check the name.
+  </Step>
+</Steps>
+
+### Cancelling a meeting
+
+<Steps>
+  <Step title="Locate the meeting">
+    The AI uses `list_user_meetings` and `get_meeting_info` to find the meeting by title or time.
+  </Step>
+  <Step title="Cancel it">
+    ```bash
+    wecom-cli meeting cancel_meeting '{"meetingid": "<meeting-id>"}'
+    ```
+  </Step>
+</Steps>
+
+### Adding an attendee
+
+<Steps>
+  <Step title="Locate the meeting">
+    The AI finds the `meetingid` using the title or time you provide.
+  </Step>
+  <Step title="Fetch current attendees">
+    ```bash
+    wecom-cli meeting get_meeting_info '{"meetingid": "<meeting-id>"}'
+    ```
+  </Step>
+  <Step title="Look up the new person's userid">
+    ```bash
+    wecom-cli contact get_userlist '{}'
+    ```
+  </Step>
+  <Step title="Submit the merged attendee list">
+    ```bash
+    wecom-cli meeting set_invite_meeting_members '{"meetingid": "<meeting-id>", "invitees": [{"userid": "zhangsan"}, {"userid": "lisi"}, {"userid": "wangwu"}]}'
+    ```
+  </Step>
+</Steps>
+
+## Key constraints
+
+- Only internal organization members can be invited. External users are not supported unless `allow_external_user` is enabled in `settings`.
+- Finding a meeting to cancel or update always requires two steps: `list_user_meetings` to get the ID, then `get_meeting_info` to confirm it is the right one.
+- Time format for all meeting parameters is `YYYY-MM-DD HH:mm` (no seconds).
+- `userid` values for invitees must always come from `wecomcli-contact`. The AI never guesses IDs.

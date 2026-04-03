@@ -1,0 +1,282 @@
+---
+title: "Document skill"
+description: "Create, read, and edit WeCom documents and smart spreadsheets (智能表格) through wecom-cli."
+---
+
+The `wecomcli-doc` skill gives the AI the ability to manage WeCom documents and smart spreadsheets (智能表格). It can read document content in Markdown, create new documents or spreadsheets, overwrite document text, manage sub-sheets and field definitions, and perform full CRUD operations on spreadsheet records.
+
+All operations accept either a `docid` or a `url` to identify the target document.
+
+## Document management
+
+### get_doc_content
+
+Fetches the full content of a document in Markdown format. Uses an **async polling mechanism**: the first call returns a `task_id`, and you must re-call with that ID until `task_done` is `true`.
+
+First call (no `task_id`):
+
+```bash
+wecom-cli doc get_doc_content '{"docid": "DOCID", "type": 2}'
+```
+
+Subsequent polling calls:
+
+```bash
+wecom-cli doc get_doc_content '{"docid": "DOCID", "type": 2, "task_id": "TASK_ID"}'
+```
+
+You can also identify the document by URL:
+
+```bash
+wecom-cli doc get_doc_content '{"url": "https://doc.weixin.qq.com/doc/xxx", "type": 2}'
+```
+
+### create_doc
+
+Creates a new document or smart spreadsheet.
+
+Create a document:
+
+```bash
+wecom-cli doc create_doc '{"doc_type": 3, "doc_name": "Project weekly report"}'
+```
+
+Create a smart spreadsheet:
+
+```bash
+wecom-cli doc create_doc '{"doc_type": 10, "doc_name": "Task tracker"}'
+```
+
+<Note>
+  The `docid` is only returned at creation time. Save it if you need to reference the document later. A newly created smart spreadsheet always includes one default sub-sheet. Use `smartsheet_get_sheet` to find its `sheet_id`.
+</Note>
+
+### edit_doc_content
+
+Overwrites the document body with Markdown content. `content_type` is always `1`.
+
+```bash
+wecom-cli doc edit_doc_content '{"docid": "DOCID", "content": "# Title\n\nBody content here.", "content_type": 1}'
+```
+
+## Smart spreadsheet — structure management
+
+### smartsheet_get_sheet
+
+Lists all sub-sheets in a smart spreadsheet, including `sheet_id`, title, and type.
+
+```bash
+wecom-cli doc smartsheet_get_sheet '{"docid": "DOCID"}'
+```
+
+### smartsheet_add_sheet
+
+Adds an empty sub-sheet. The new sheet has no views, records, or fields — populate it with the field and record operations below.
+
+```bash
+wecom-cli doc smartsheet_add_sheet '{"docid": "DOCID", "properties": {"title": "New sheet"}}'
+```
+
+### smartsheet_update_sheet
+
+Renames a sub-sheet.
+
+```bash
+wecom-cli doc smartsheet_update_sheet '{"docid": "DOCID", "properties": {"sheet_id": "SHEET_ID", "title": "Renamed sheet"}}'
+```
+
+### smartsheet_delete_sheet
+
+Permanently deletes a sub-sheet.
+
+```bash
+wecom-cli doc smartsheet_delete_sheet '{"docid": "DOCID", "sheet_id": "SHEET_ID"}'
+```
+
+<Warning>
+  Deleting a sub-sheet is irreversible.
+</Warning>
+
+### smartsheet_get_fields
+
+Lists all fields (columns) in a sub-sheet, including `field_id`, `field_title`, and `field_type`.
+
+```bash
+wecom-cli doc smartsheet_get_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID"}'
+```
+
+### smartsheet_add_fields
+
+Adds one or more fields to a sub-sheet. A single sub-sheet supports at most 150 fields.
+
+```bash
+wecom-cli doc smartsheet_add_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID", "fields": [{"field_title": "Task name", "field_type": "FIELD_TYPE_TEXT"}]}'
+```
+
+### smartsheet_update_fields
+
+Renames a field. You cannot change the field type — `field_type` must be the same as the original. The new title must differ from the current one.
+
+```bash
+wecom-cli doc smartsheet_update_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID", "fields": [{"field_id": "FIELD_ID", "field_title": "New title", "field_type": "FIELD_TYPE_TEXT"}]}'
+```
+
+### smartsheet_delete_fields
+
+Permanently deletes one or more fields. Get the `field_id` from `smartsheet_get_fields`.
+
+```bash
+wecom-cli doc smartsheet_delete_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID", "field_ids": ["FIELD_ID"]}'
+```
+
+<Warning>
+  Deleting a field is irreversible.
+</Warning>
+
+## Smart spreadsheet — data management
+
+### smartsheet_get_records
+
+Returns all records in a sub-sheet.
+
+```bash
+wecom-cli doc smartsheet_get_records '{"docid": "DOCID", "sheet_id": "SHEET_ID"}'
+```
+
+You can also use a URL:
+
+```bash
+wecom-cli doc smartsheet_get_records '{"url": "https://doc.weixin.qq.com/smartsheet/xxx", "sheet_id": "SHEET_ID"}'
+```
+
+### smartsheet_add_records
+
+Adds one or more rows. Recommended maximum: 500 rows per call.
+
+Before adding records, the AI checks field types via `smartsheet_get_fields`. For single-select or multi-select (Option) fields, existing option IDs must be matched exactly.
+
+```bash
+wecom-cli doc smartsheet_add_records '{"docid": "DOCID", "sheet_id": "SHEET_ID", "records": [{"values": {"Task name": [{"type": "text", "text": "Complete requirements doc"}], "Priority": [{"text": "High"}]}}]}'
+```
+
+### smartsheet_update_records
+
+Updates one or more rows. Requires the `record_id` from `smartsheet_get_records`. Use `key_type` to specify whether values are keyed by field title or field ID.
+
+```bash
+wecom-cli doc smartsheet_update_records '{"docid": "DOCID", "sheet_id": "SHEET_ID", "key_type": "CELL_VALUE_KEY_TYPE_FIELD_TITLE", "records": [{"record_id": "RECORD_ID", "values": {"Task name": [{"type": "text", "text": "Updated content"}]}}]}'
+```
+
+<Note>
+  System-managed fields — creation time, last edit time, creator, and last editor — cannot be updated.
+</Note>
+
+### smartsheet_delete_records
+
+Permanently deletes one or more rows. Maximum 500 rows per call. Get `record_id` values from `smartsheet_get_records`.
+
+```bash
+wecom-cli doc smartsheet_delete_records '{"docid": "DOCID", "sheet_id": "SHEET_ID", "record_ids": ["RECORD_ID_1", "RECORD_ID_2"]}'
+```
+
+<Warning>
+  Deleting records is irreversible.
+</Warning>
+
+## Typical workflows
+
+### Reading a document
+
+<Steps>
+  <Step title="Start the content fetch">
+    ```bash
+    wecom-cli doc get_doc_content '{"docid": "DOCID", "type": 2}'
+    ```
+  </Step>
+  <Step title="Poll until complete">
+    If `task_done` is `false`, the AI calls again with the returned `task_id`:
+    ```bash
+    wecom-cli doc get_doc_content '{"docid": "DOCID", "type": 2, "task_id": "TASK_ID"}'
+    ```
+    It repeats this until `task_done` is `true`, then presents the Markdown content.
+  </Step>
+</Steps>
+
+### Creating and editing a document
+
+<Steps>
+  <Step title="Create the document">
+    ```bash
+    wecom-cli doc create_doc '{"doc_type": 3, "doc_name": "Meeting notes"}'
+    ```
+    Save the returned `docid`.
+  </Step>
+  <Step title="Write content">
+    ```bash
+    wecom-cli doc edit_doc_content '{"docid": "DOCID", "content": "# Meeting notes\n\n- Item one\n- Item two", "content_type": 1}'
+    ```
+  </Step>
+</Steps>
+
+### Setting up a smart spreadsheet
+
+<Steps>
+  <Step title="Create the spreadsheet">
+    ```bash
+    wecom-cli doc create_doc '{"doc_type": 10, "doc_name": "Task tracker"}'
+    ```
+  </Step>
+  <Step title="Find the default sub-sheet">
+    ```bash
+    wecom-cli doc smartsheet_get_sheet '{"docid": "DOCID"}'
+    ```
+  </Step>
+  <Step title="Define the fields">
+    ```bash
+    wecom-cli doc smartsheet_add_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID", "fields": [{"field_title": "Task name", "field_type": "FIELD_TYPE_TEXT"}, {"field_title": "Status", "field_type": "FIELD_TYPE_TEXT"}]}'
+    ```
+  </Step>
+</Steps>
+
+### Adding rows to a spreadsheet
+
+<Steps>
+  <Step title="Check field types">
+    ```bash
+    wecom-cli doc smartsheet_get_fields '{"docid": "DOCID", "sheet_id": "SHEET_ID"}'
+    ```
+    For USER-type fields, the AI also calls `wecomcli-contact` to resolve names to `userid` values.
+  </Step>
+  <Step title="Add the records">
+    ```bash
+    wecom-cli doc smartsheet_add_records '{"docid": "DOCID", "sheet_id": "SHEET_ID", "records": [{"values": {"Task name": [{"type": "text", "text": "Complete requirements doc"}]}}]}'
+    ```
+  </Step>
+</Steps>
+
+### Updating and deleting rows
+
+<Steps>
+  <Step title="Get the record IDs">
+    ```bash
+    wecom-cli doc smartsheet_get_records '{"docid": "DOCID", "sheet_id": "SHEET_ID"}'
+    ```
+  </Step>
+  <Step title="Update specific rows">
+    ```bash
+    wecom-cli doc smartsheet_update_records '{"docid": "DOCID", "sheet_id": "SHEET_ID", "key_type": "CELL_VALUE_KEY_TYPE_FIELD_TITLE", "records": [{"record_id": "RECORD_ID", "values": {"Task name": [{"type": "text", "text": "Revised content"}]}}]}'
+    ```
+  </Step>
+  <Step title="Delete rows (if needed)">
+    ```bash
+    wecom-cli doc smartsheet_delete_records '{"docid": "DOCID", "sheet_id": "SHEET_ID", "record_ids": ["RECORD_ID"]}'
+    ```
+  </Step>
+</Steps>
+
+## Key constraints
+
+- All operations accept `docid` or `url` — you do not need to know both.
+- For USER-type spreadsheet fields, values must be `userid` strings obtained via `wecomcli-contact`. Names cannot be used directly.
+- `edit_doc_content` overwrites the entire document body. The AI reads the current content first when a partial edit is intended.
+- If `errcode` is not `0`, the AI retries once. If it fails again, it reports `errcode` and `errmsg` to you.

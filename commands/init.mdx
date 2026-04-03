@@ -1,0 +1,71 @@
+---
+title: "init"
+description: "Interactive credential setup — run once to authenticate wecom-cli with your WeCom account."
+---
+
+Run `wecom-cli init` to configure your bot credentials. The wizard encrypts and stores them locally so every subsequent command can authenticate automatically.
+
+```bash
+wecom-cli init
+```
+
+<Note>
+  You only need to run `init` once per machine. Your credentials are stored at `~/.config/wecom/bot.enc` and reused for every command. See [Configuration](/configuration) for details on credential storage and how to override the default path.
+</Note>
+
+## Authentication methods
+
+<CardGroup cols={2}>
+  <Card title="QR code scan (recommended)" icon="qrcode">
+    Open the WeCom mobile app, scan the QR code displayed in your terminal, and confirm the bot binding. No credentials to copy or paste.
+  </Card>
+  <Card title="Manual entry" icon="keyboard">
+    Enter your Bot ID and Secret directly. Obtain these from the [WeCom developer documentation](https://open.work.weixin.qq.com/help2/pc/cat?doc_id=21677).
+  </Card>
+</CardGroup>
+
+## Interactive flow
+
+<Steps>
+  <Step title="Start the wizard">
+    Run the command in your terminal:
+
+    ```bash
+    wecom-cli init
+    ```
+
+    The wizard opens with a prompt to select your authentication method.
+  </Step>
+  <Step title="Choose an authentication method">
+    Use the arrow keys to select one of the two options:
+
+    - **QR code scan (recommended)** — the wizard displays a QR code. Open the WeCom app on your phone and scan it to create a bot binding automatically.
+    - **Manual input** — enter your Bot ID when prompted, then enter your Bot Secret (input is masked).
+  </Step>
+  <Step title="Credential verification">
+    After you authenticate, the wizard verifies your credentials against the WeCom API. A spinner shows verification progress.
+
+    - On success: credentials are encrypted and saved to `~/.config/wecom/bot.enc`. The MCP config cache at `~/.config/wecom/mcp_config.enc` is also updated.
+    - On failure: the wizard rolls back and removes any partially written credentials. The error message from the WeCom API is shown so you can diagnose the problem.
+  </Step>
+  <Step title="Run your first command">
+    Once initialization completes, run any wecom-cli command. For example, fetch the members visible to your account:
+
+    ```bash
+    wecom-cli contact get_userlist '{}'
+    ```
+  </Step>
+</Steps>
+
+## Credential storage
+
+| File | Default path | Notes |
+| ---- | ------------ | ----- |
+| Bot credentials | `~/.config/wecom/bot.enc` | Created by `wecom-cli init` |
+| MCP config cache | `~/.config/wecom/mcp_config.enc` | Updated after a successful `init` |
+
+Both files are encrypted with AES-256-GCM. See [Configuration](/configuration) for full details and override options.
+
+<Tip>
+  To reset your credentials and start fresh, delete `~/.config/wecom/bot.enc` and run `wecom-cli init` again.
+</Tip>

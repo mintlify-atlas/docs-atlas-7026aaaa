@@ -1,0 +1,52 @@
+---
+title: "Environment variables"
+description: "All environment variables recognized by wecom-cli, with accepted values and usage examples."
+---
+
+wecom-cli reads the following environment variables at startup. None are required — sensible defaults apply when they are unset.
+
+<ParamField path="WECOM_CLI_CONFIG_DIR" type="string">
+  Overrides the default configuration directory (`~/.config/wecom`). Set this to store bot credentials and the MCP config cache in a custom location — useful for CI environments or when running multiple accounts on the same machine.
+
+  ```bash
+  WECOM_CLI_CONFIG_DIR=/opt/wecom/config wecom-cli contact get_userlist '{}'
+  ```
+</ParamField>
+
+<ParamField path="WECOM_CLI_TMP_DIR" type="string">
+  Overrides the root of the media temporary directory. By default, wecom-cli writes downloaded media files to `<system_tmp>/wecom/media`. Setting this variable changes the root; the `media` subdirectory is always appended automatically.
+
+  ```bash
+  WECOM_CLI_TMP_DIR=/mnt/fast-disk wecom-cli msg get_msg_media '{"msgid": "..."}'
+  # Files are written to /mnt/fast-disk/media
+  ```
+</ParamField>
+
+<ParamField path="WECOM_CLI_LOG_LEVEL" type="string">
+  Enables human-readable log output on **stderr** and sets the filter level. Accepts standard tracing filter directives: `debug`, `info`, `warn`, `error`, or crate-scoped filters such as `ww=debug`.
+
+  ```bash
+  WECOM_CLI_LOG_LEVEL=debug wecom-cli contact get_userlist '{}'
+  ```
+
+  Logging is disabled entirely when this variable is unset.
+</ParamField>
+
+<ParamField path="WECOM_CLI_LOG_FILE" type="string">
+  Enables JSON log output written to a daily-rotating file. Set this to the **directory** where log files should be written. wecom-cli names the file `ww.log` and rotates it daily. The file log always captures `debug` level and above for the `ww` crate, regardless of `WECOM_CLI_LOG_LEVEL`.
+
+  ```bash
+  WECOM_CLI_LOG_FILE=/var/log/wecom wecom-cli contact get_userlist '{}'
+  # Writes JSON logs to /var/log/wecom/ww.log
+  ```
+
+  Logging is disabled entirely when this variable is unset.
+</ParamField>
+
+<ParamField path="WECOM_CLI_MCP_CONFIG_ENDPOINT" type="string">
+  Overrides the default MCP config endpoint URL. By default, wecom-cli fetches MCP configuration from `https://qyapi.weixin.qq.com/cgi-bin/aibot/cli/get_mcp_config`. Use this variable to point to a custom or proxied endpoint.
+
+  ```bash
+  WECOM_CLI_MCP_CONFIG_ENDPOINT=https://proxy.example.com/mcp-config wecom-cli init
+  ```
+</ParamField>

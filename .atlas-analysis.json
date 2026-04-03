@@ -1,0 +1,85 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "wecom-cli",
+  "projectDescription": "A command-line tool for WeCom (企业微信) that lets both humans and AI agents manage contacts, messages, meetings, schedules, todos, and documents from the terminal.",
+  "theme": "luma",
+  "primaryColor": "#848c8e",
+  "lightColor": "#11161e",
+  "darkColor": "#cfd0d2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "configuration"
+            ]
+          },
+          {
+            "group": "Command Reference",
+            "pages": [
+              "commands/init",
+              "commands/contact",
+              "commands/messages",
+              "commands/meetings",
+              "commands/schedules",
+              "commands/todos",
+              "commands/docs"
+            ]
+          },
+          {
+            "group": "AI Agent Skills",
+            "pages": [
+              "agent-skills/overview",
+              "agent-skills/contact-skill",
+              "agent-skills/msg-skill",
+              "agent-skills/meeting-skill",
+              "agent-skills/schedule-skill",
+              "agent-skills/todo-skill",
+              "agent-skills/doc-skill"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/environment-variables",
+              "reference/runtime-paths",
+              "reference/troubleshooting"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Interactive credential setup via QR code or manual Bot ID/Secret entry",
+    "6 business categories: contact, msg, meeting, schedule, todo, doc",
+    "AI Agent Skills for autonomous WeCom operations",
+    "Cross-platform binary distribution via npm optional dependencies",
+    "Encrypted local credential and MCP config storage",
+    "Media file download with local path resolution",
+    "JSON-RPC based tool invocation with dynamic schema discovery"
+  ],
+  "publicApiSurface": [
+    "wecom-cli init",
+    "wecom-cli contact <method> [json_args]",
+    "wecom-cli msg <method> [json_args]",
+    "wecom-cli meeting <method> [json_args]",
+    "wecom-cli schedule <method> [json_args]",
+    "wecom-cli todo <method> [json_args]",
+    "wecom-cli doc <method> [json_args]",
+    "contact get_userlist",
+    "msg get_msg_chat_list",
+    "msg get_message",
+    "msg get_msg_media",
+    "msg send_message",
+    "todo create/read/update/delete",
+    "meeting create/cancel/update/list",
+    "schedule create/update/delete/list",
+    "doc create_doc/read/write"
+  ]
+}
